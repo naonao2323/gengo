@@ -2,7 +2,6 @@ package extractor
 
 import (
 	"context"
-	"fmt"
 
 	extractor "github.com/naonao2323/testgen/pkg/extractor/postgres"
 )
@@ -20,19 +19,29 @@ func Extract() ExtractGetter {
 	var extract extract
 	conn := extractor.NewDB()
 	ctx := context.Background()
-	result, err := extractor.FetchSchema(ctx, conn, "public")
+	tables, err := extractor.FetchTables(ctx, conn, "public")
 	if err != nil {
 		panic(err)
 	}
-	var table table
-	result.Scan(&table.tableName, &table.tableSchema, &table.tableType)
-	fmt.Println(table)
+	for i := range tables {
+		table := tables.GetTableName(i)
+		rows, err := extractor.GetRows(ctx, conn, table)
+		if err != nil {
+			panic(err)
+		}
+	}
 	return extract
 }
 
 type extract struct {
 	table table
 }
+
+type table struct {
+	columns []column
+}
+
+type column struct{}
 
 type DataType int
 
