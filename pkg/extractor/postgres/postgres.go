@@ -1,4 +1,4 @@
-package extractor
+package postgres
 
 import (
 	"context"
@@ -17,6 +17,11 @@ func NewDB() *sql.DB {
 	return db
 }
 
+type ProviderGetter interface {
+	FetchTables()
+	GetTableName()
+	GetTableTypeName()
+}
 type table struct {
 	tableName string
 	tableType string
@@ -69,6 +74,41 @@ type row struct {
 	Referenced *row
 }
 
+func (r *row) GetName(refered bool) string {
+	if refered {
+		return r.Referenced.name
+	}
+	return r.name
+}
+
+func (r *row) GetTable(refered bool) string {
+	if refered {
+		return r.Referenced.table
+	}
+	return r.table
+}
+
+func (r *row) GetOrder(refered bool) int {
+	if refered {
+		return r.Referenced.order
+	}
+	return r.order
+}
+
+func (r *row) GetIsNull(refered bool) bool {
+	if refered {
+		return r.Referenced.isNull
+	}
+	return r.isNull
+}
+
+func (r *row) GetDataType(refered bool) string {
+	if refered {
+		return r.Referenced.dataType
+	}
+	return r.dataType
+}
+
 type Rows []row
 
 func (r Rows) GetName(index int) string {
@@ -94,6 +134,10 @@ func (r Rows) GetReferencedRowName(index int) string {
 
 func (r Rows) GetReferencedRow(index int) *row {
 	return r[index].Referenced
+}
+
+func (r Rows) GetTableName(index int) string {
+	return r[index].table
 }
 
 func GetRows(ctx context.Context, db *sql.DB, table string) (Rows, error) {
@@ -140,12 +184,19 @@ func getRows(ctx context.Context, db *sql.DB, table string) (Rows, error) {
 	return rows, nil
 }
 
-func getReferencedRow(ctx context.Context, db *sql.DB, row row, table string) (row, error) {
+type Referenced = row
+
+func (r Referenced) Get() *Referenced {
+	// ここが配列になる。
+	return r.Referenced
+}
+
+func GetReferencedRow(ctx context.Context, db *sql.DB, row row) (Referenced, error) {
 	// 再帰的に処理をして、外部キーを取得する。
 	var state getReferenceRow
 	state = row.getReferencedRow
 	for {
-		state = state(ctx, db, table)
+		state = state(ctx, db)
 		if state != nil {
 			break
 		}
@@ -153,7 +204,7 @@ func getReferencedRow(ctx context.Context, db *sql.DB, row row, table string) (r
 	return row, nil
 }
 
-func (r *row) getReferencedRow(ctx context.Context, db *sql.DB, table string) getReferenceRow {
+func (r *row) getReferencedRow(ctx context.Context, db *sql.DB) getReferenceRow {
 	// 関連している外部キーを取得する。
 	result, err := db.QueryContext(
 		ctx,
@@ -166,7 +217,7 @@ func (r *row) getReferencedRow(ctx context.Context, db *sql.DB, table string) ge
 			AND
 			column_name = $2
 		`,
-		table,
+		r.table,
 		r.name,
 	)
 	if err != nil {
@@ -184,7 +235,7 @@ func (r *row) getReferencedRow(ctx context.Context, db *sql.DB, table string) ge
 		constraints = append(constraints, constraint)
 	}
 
-	filtered, err := filterConstrainsts(ctx, db, constraints, table)
+	filtered, err := filterConstrainsts(ctx, db, constraints, r.table)
 	if err != nil {
 		fmt.Println(err)
 		return nil
@@ -192,6 +243,7 @@ func (r *row) getReferencedRow(ctx context.Context, db *sql.DB, table string) ge
 	if len(filtered) != 1 {
 		return nil
 	}
+	// ここが複数になる。
 	refered, err := findReferenced(ctx, db, filtered[0])
 	if err != nil {
 		fmt.Println(err)
@@ -275,7 +327,7 @@ func filterConstrainsts(ctx context.Context, db *sql.DB, constraints []string, t
 	return filtered, nil
 }
 
-type getReferenceRow func(ctx context.Context, db *sql.DB, table string) getReferenceRow
+type getReferenceRow func(ctx context.Context, db *sql.DB) getReferenceRow
 
 func catch() {
 	if err := recover(); err != nil {
