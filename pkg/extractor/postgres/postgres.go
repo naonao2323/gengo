@@ -155,7 +155,7 @@ type table struct {
 type column struct {
 	name     string
 	isNull   string
-	isUnique string
+	order    int
 	dataType string
 }
 
@@ -170,8 +170,47 @@ func InitTables(ctx context.Context, db *sql.DB, schema string) Tables {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%v\n", tableNames)
+	for i := range tableNames {
+		table, err := fetchTable(ctx, db, tableNames[i])
+		if err != nil {
+			panic(err)
+		}
+		if table == nil {
+			panic("no table")
+		}
+		tables[table.name] = *table
+
+	}
 	return tables
+}
+
+func fetchTable(ctx context.Context, db *sql.DB, name string) (*table, error) {
+	result, err := db.QueryContext(
+		ctx,
+		`
+		SELECT
+			column_name,
+			is_nullable,
+			ordinal_position,
+			data_type
+		FROM information_schema.columns
+		WHERE table_name = $1
+		`,
+		name,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer result.Close()
+	columns := make([]column, 0, 10)
+	for result.Next() {
+		column := new(column)
+		if err := result.Scan(&column.name, &column.isNull, &column.order, &column.dataType); err != nil {
+			return nil, err
+		}
+		columns = append(columns, *column)
+	}
+	return &table{name, columns}, nil
 }
 
 func listTableNames(ctx context.Context, db *sql.DB, schema string) ([]string, error) {

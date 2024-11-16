@@ -220,9 +220,94 @@ func Test_InitTables(t *testing.T) {
 		expected Tables
 	}{
 		{
-			name:     "There are tables associated with the schema",
-			schema:   "public",
+			name:     "There are no tables associated with the schema",
+			schema:   "test",
 			expected: Tables{},
+		},
+		{
+			name:   "There are tables associated with the schema",
+			schema: "public",
+			expected: Tables{
+				"users": table{
+					name: "users",
+					columns: []column{
+						{
+							name:     "id",
+							isNull:   "NO",
+							order:    1,
+							dataType: "integer",
+						},
+					},
+				},
+				"blogs": table{
+					name: "blogs",
+					columns: []column{
+						{
+							name:     "id",
+							isNull:   "NO",
+							order:    1,
+							dataType: "integer",
+						},
+					},
+				},
+				"memos": table{
+					name: "memos",
+					columns: []column{
+						{
+							name:     "id",
+							isNull:   "NO",
+							order:    1,
+							dataType: "integer",
+						},
+						{
+							name:     "user_id",
+							isNull:   "YES",
+							order:    2,
+							dataType: "integer",
+						},
+						{
+							name:     "blog_id",
+							isNull:   "YES",
+							order:    3,
+							dataType: "integer",
+						},
+					},
+				},
+				"comments": table{
+					name: "comments",
+					columns: []column{
+						{
+							name:     "id",
+							isNull:   "NO",
+							order:    1,
+							dataType: "integer",
+						},
+						{
+							name:     "memo_id",
+							isNull:   "YES",
+							order:    2,
+							dataType: "integer",
+						},
+					},
+				},
+				"goods": table{
+					name: "goods",
+					columns: []column{
+						{
+							name:     "id",
+							isNull:   "NO",
+							order:    1,
+							dataType: "integer",
+						},
+						{
+							name:     "user_id",
+							isNull:   "YES",
+							order:    2,
+							dataType: "integer",
+						},
+					},
+				},
+			},
 		},
 	}
 
