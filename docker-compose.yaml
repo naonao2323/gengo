@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:17.0
+    ports:
+      - "2000:5432"
+    restart: always
+    environment:
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD=rootpass
+      - POSTGRES_DB=app
+    volumes:
+      - db_vol:/var/lib/postgresql/data
+
+volumes:
+  db_vol:

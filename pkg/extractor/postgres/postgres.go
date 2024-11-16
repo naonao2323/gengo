@@ -1,285 +1,148 @@
-package extractor
+package postgres
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
-	"time"
+	"strings"
 
 	_ "github.com/lib/pq"
 )
 
-func NewDB() *sql.DB {
-	db, err := sql.Open("postgres", "postgres://root:rootpass@localhost:5432/app?sslmode=disable")
+func NewDB(dataSource string) *sql.DB {
+	db, err := sql.Open("postgres", dataSource)
 	if err != nil {
 		fmt.Println(err)
 	}
 	return db
 }
 
-type table struct {
-	tableName string
-	tableType string
+type FKey struct {
+	name   string
+	isNull bool
 }
-
-type Tables []table
-
-func (t Tables) GetTableName(index int) string {
-	return t[index].tableName
-}
-
-func (t Tables) GetTableTypeName(index int) string {
-	return t[index].tableType
-}
-
-func FetchTables(ctx context.Context, db *sql.DB, schema string) (Tables, error) {
-	defer catch()
-	var tables Tables
-	result, err := db.QueryContext(
-		ctx,
-		`SELECT table_name, table_type
-		 FROM information_schema.tables
-		 WHERE table_schema = $1`,
-		schema,
-	)
-	if err != nil {
-		fmt.Println("query with context error")
-		return nil, err
-	}
-	defer result.Close()
-	for result.Next() {
-		var table table
-		if err := result.Scan(&table.tableName, &table.tableType); err != nil {
-			println("table error")
-			return nil, err
-		}
-		tables = append(tables, table)
-	}
-	return tables, nil
-}
-
-// ここcolumnです。
-// referencedは複数にならない。
-type row struct {
-	name       string
+type FKeyTree struct {
 	table      string
-	order      int
-	isNull     bool
-	dataType   string
-	Referenced *row
+	referenced map[FKey]FKeyTree
 }
 
-type Rows []row
-
-func (r Rows) GetName(index int) string {
-	return r[index].name
-}
-
-func (r Rows) GetOrder(index int) int {
-	return r[index].order
-}
-
-func (r Rows) GetIsNull(index int) bool {
-	return r[index].isNull
-}
-
-func (r Rows) GetDataType(index int) string {
-	return r[index].dataType
-}
-
-// refenced nameを返す。
-func (r Rows) GetReferencedRowName(index int) string {
-	return r[index].Referenced.name
-}
-
-func (r Rows) GetReferencedRow(index int) *row {
-	return r[index].Referenced
-}
-
-func GetRows(ctx context.Context, db *sql.DB, table string) (Rows, error) {
-	// timeoutを設定できるようにするdefault 10秒
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	defer catch()
-	rows, err := getRows(ctx, db, table)
+func InitForeignKeyTree(ctx context.Context, db *sql.DB, entrypointTable string) (FKeyTree, error) {
+	var tree FKeyTree
+	tree.table = entrypointTable
+	foreignKeyConstraints, err := getForeignConstraints(ctx, db, entrypointTable)
 	if err != nil {
-		return nil, err
+		return tree, err
 	}
-
-	return rows, nil
+	refer, err := getReferenced(ctx, db, foreignKeyConstraints)
+	if err != nil {
+		return tree, err
+	}
+	tree.referenced = refer
+	for k, v := range tree.referenced {
+		tree.referenced[k], err = InitForeignKeyTree(ctx, db, v.table)
+		if err != nil {
+			return tree, err
+		}
+	}
+	return tree, nil
 }
 
-// 浅い取得
-func getRows(ctx context.Context, db *sql.DB, table string) (Rows, error) {
-	result, err := db.QueryContext(
-		ctx,
-		`SELECT
-			column_name,
-			ordinal_position,
-			data_type,
-			is_nullable
-		FROM information_schema.columns
-		WHERE table_name = $1;
+func getReferenced(ctx context.Context, db *sql.DB, constraints []string) (map[FKey]FKeyTree, error) {
+	if len(constraints) <= 0 {
+		return nil, nil
+	}
+	tree := make(map[FKey]FKeyTree, len(constraints))
+	placeholder := func(v ...string) string {
+		var b strings.Builder
+		for i := range v {
+			b.Grow(len(v[i]) + 3)
+			b.WriteString("'")
+			b.WriteString(v[i])
+			b.WriteString("'")
+			if i != len(v)-1 {
+				b.WriteString(",")
+			}
+		}
+		return b.String()
+	}
+	isNull := func(v string) bool {
+		return v == "YES"
+	}
+	query := fmt.Sprintf(
+		`
+		SELECT src_col.attname AS source_column, tgt_table.relname AS target_table
+		FROM pg_constraint con
+		JOIN pg_class src_table ON con.conrelid = src_table.oid
+		JOIN pg_class tgt_table ON con.confrelid = tgt_table.oid
+		JOIN pg_attribute src_col ON src_col.attnum = ANY(con.conkey) AND src_col.attrelid = src_table.oid
+		JOIN pg_attribute tgt_col ON tgt_col.attnum = ANY(con.confkey) AND tgt_col.attrelid = tgt_table.oid
+		WHERE con.contype = 'f' AND con.conname IN (%s);
 		`,
-		table,
+		placeholder(constraints...),
 	)
+	result, err := db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
-	var rows Rows
 	defer result.Close()
+	type pair struct {
+		sourceColumn string
+		targetTable  string
+	}
+	pairs := make([]pair, 0, len(constraints))
 	for result.Next() {
-		var resp row
-		if err := result.Scan(&resp.name, &resp.order, &resp.dataType, &resp.isNull); err != nil {
+		pair := new(pair)
+		if err := result.Scan(&pair.sourceColumn, &pair.targetTable); err != nil {
 			return nil, err
 		}
-		resp.table = table
-		resp.Referenced = new(row)
-		rows = append(rows, resp)
+		pairs = append(pairs, *pair)
 	}
-	return rows, nil
-}
-
-func getReferencedRow(ctx context.Context, db *sql.DB, row row, table string) (row, error) {
-	// 再帰的に処理をして、外部キーを取得する。
-	var state getReferenceRow
-	state = row.getReferencedRow
-	for {
-		state = state(ctx, db, table)
-		if state != nil {
-			break
+	for i := range pairs {
+		result := db.QueryRow(
+			`
+			SELECT column_name, is_nullable
+			FROM information_schema.columns
+			WHERE column_name = $1;
+			`,
+			pairs[i].sourceColumn,
+		)
+		if err := result.Err(); err != nil {
+			return nil, err
+		}
+		var fkey FKey
+		var null string
+		if err := result.Scan(&fkey.name, &null); err != nil {
+			return nil, err
+		}
+		fkey.isNull = isNull(null)
+		tree[fkey] = FKeyTree{
+			table: pairs[i].targetTable,
 		}
 	}
-	return row, nil
+	return tree, nil
 }
 
-func (r *row) getReferencedRow(ctx context.Context, db *sql.DB, table string) getReferenceRow {
-	// 関連している外部キーを取得する。
+func getForeignConstraints(ctx context.Context, db *sql.DB, table string) ([]string, error) {
 	result, err := db.QueryContext(
 		ctx,
-		`SELECT
-			constraint_name
-		 FROM
-		 	information_schema.key_column_usage
-		 WHERE
-		 	table_name = $1
-			AND
-			column_name = $2
+		`
+		SELECT constraint_name
+		FROM information_schema.table_constraints
+		WHERE table_name = $1 AND constraint_type = 'FOREIGN KEY'
 		`,
 		table,
-		r.name,
 	)
 	if err != nil {
-		fmt.Println(err)
-		return nil
+		return nil, err
 	}
 	defer result.Close()
 	var constraints []string
 	for result.Next() {
 		var constraint string
 		if err := result.Scan(&constraint); err != nil {
-			fmt.Println(err)
-			return nil
+			return nil, err
 		}
 		constraints = append(constraints, constraint)
 	}
-
-	filtered, err := filterConstrainsts(ctx, db, constraints, table)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-	if len(filtered) != 1 {
-		return nil
-	}
-	refered, err := findReferenced(ctx, db, filtered[0])
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-	r.Referenced = refered
-	return refered.getReferencedRow
-}
-
-func findReferenced(ctx context.Context, db *sql.DB, constraint string) (*row, error) {
-	var row row
-	result, err := db.QueryContext(
-		ctx,
-		`
-		SELECT table_name, column_name
-		FROM information_schema.constraint_column_usage
-		WHERE constraint_name = $1
-		`,
-		constraint,
-	)
-	if err != nil {
-		return nil, err
-	}
-	result.Close()
-	var refencedTable, refencedColumn string
-	if err := result.Scan(&refencedTable, &refencedColumn); err != nil {
-		return nil, err
-	}
-
-	result, err = db.QueryContext(
-		ctx,
-		`
-		SELECT
-			column_name,
-			ordinal_position,
-			data_type,
-			is_nullable
-		FROM information_schema.columns
-		WHERE table_name = $1 AND column_name = $2;
-		`,
-		refencedTable,
-		refencedColumn,
-	)
-	if err != nil {
-		return nil, err
-	}
-	result.Close()
-	if err := result.Scan(&row.name, &row.order, &row.dataType, &row.isNull); err != nil {
-		return nil, err
-	}
-	row.table = refencedTable
-	return &row, nil
-}
-
-// primary keyとunique keyをフィルタリングしている。
-func filterConstrainsts(ctx context.Context, db *sql.DB, constraints []string, table string) ([]string, error) {
-	filtered := make([]string, len(constraints))
-	copy(filtered, constraints)
-	for _, constraint := range constraints {
-		result, err := db.QueryContext(
-			ctx,
-			`
-			SELECT table_name, column_name
-			FROM information_schema.constraint_column_usage
-			WHERE constraint_name = $1
-			`,
-			constraint,
-		)
-		if err != nil {
-			return nil, err
-		}
-		var referedTable, referedColumn string
-		if err := result.Scan(&referedTable, &referedColumn); err != nil {
-			return nil, err
-		}
-		if table != referedTable {
-			filtered = append(filtered, constraint)
-		}
-		result.Close()
-	}
-	return filtered, nil
-}
-
-type getReferenceRow func(ctx context.Context, db *sql.DB, table string) getReferenceRow
-
-func catch() {
-	if err := recover(); err != nil {
-		fmt.Println("catch  panic", err)
-	}
-	fmt.Println("ok")
+	return constraints, nil
 }
