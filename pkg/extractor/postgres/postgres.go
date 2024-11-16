@@ -37,9 +37,8 @@ type (
 
 func catch() {
 	if err := recover(); err != nil {
-		fmt.Println("catch  panic", err)
+		println(err)
 	}
-	fmt.Println("ok")
 }
 
 func FetchTables(ctx context.Context, db *sql.DB, schema string) (Tables, error) {
@@ -68,6 +67,8 @@ func FetchTables(ctx context.Context, db *sql.DB, schema string) (Tables, error)
 	return tables, nil
 }
 
+// 再帰処理をするところをここにリフトアップ
+// これだと最初のtableの外部キーしか考慮できてない
 func GetRows(ctx context.Context, db *sql.DB, table string, timeout time.Duration) (Rows, error) {
 	// timeoutを設定できるようにするdefault 10秒
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -83,6 +84,7 @@ func GetRows(ctx context.Context, db *sql.DB, table string, timeout time.Duratio
 	return rows, nil
 }
 
+// これは絡むひとつしか対応してない
 func (r *row) createTableTree(ctx context.Context, db *sql.DB) error {
 	constraints, err := getConstraints(ctx, db, r.table, r.name)
 	if err != nil {
@@ -92,22 +94,24 @@ func (r *row) createTableTree(ctx context.Context, db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-
-	rows, err := getReferencedRows(ctx, db, filtered)
+	if len(filtered) <= 0 {
+		return nil
+	}
+	referenced, err := getReferencedRows(ctx, db, filtered)
 	if err != nil {
 		return err
 	}
-	for i := range rows {
-		rows[i].createTableTree(ctx, db)
+	for i := range referenced {
+		referenced[i].createTableTree(ctx, db)
 	}
-	r.Referenced = rows
+	r.Referenced = referenced
 	return nil
 }
 
 func filterConstraints(ctx context.Context, db *sql.DB, constraints []string, targetTable string) ([]string, error) {
 	filtered := make([]string, 0, len(constraints))
 	for _, constraint := range constraints {
-		result, err := db.QueryContext(
+		result := db.QueryRowContext(
 			ctx,
 			`
 				SELECT table_name, column_name
@@ -116,9 +120,6 @@ func filterConstraints(ctx context.Context, db *sql.DB, constraints []string, ta
 				`,
 			constraint,
 		)
-		if err != nil {
-			return nil, err
-		}
 		var referedTable, referedColumn string
 		if err := result.Scan(&referedTable, &referedColumn); err != nil {
 			return nil, err
@@ -126,7 +127,6 @@ func filterConstraints(ctx context.Context, db *sql.DB, constraints []string, ta
 		if targetTable != referedTable {
 			filtered = append(filtered, constraint)
 		}
-		result.Close()
 	}
 	return filtered, nil
 }
@@ -168,27 +168,28 @@ func getReferencedRows(ctx context.Context, db *sql.DB, constraints []string) ([
 	buildIn := func(constraints []string) string {
 		var builder strings.Builder
 		for i := range constraints {
-			builder.Grow(len(constraints[i]))
+			builder.Grow(len(constraints[i]) + 2)
+			builder.WriteString("'")
 			builder.WriteString(constraints[i])
-			if i == len(constraints)-1 {
+			builder.WriteString("'")
+			if i != len(constraints)-1 {
 				builder.WriteRune(',')
 			}
 		}
 		return builder.String()
 	}
+	query := fmt.Sprintf(`
+	SELECT table_name, column_name
+	FROM information_schema.constraint_column_usage
+	WHERE constraint_name IN (%s)`, buildIn(constraints))
 	result, err := db.QueryContext(
 		ctx,
-		`
-			SELECT table_name, column_name
-			FROM information_schema.constraint_column_usage
-			WHERE constraint_name in ($1)
-			`,
-		buildIn(constraints),
+		query,
 	)
 	if err != nil {
 		return nil, err
 	}
-	result.Close()
+	defer result.Close()
 	for result.Next() {
 		var table, column string
 		if err := result.Scan(&table, &column); err != nil {
@@ -225,10 +226,19 @@ func getRow(ctx context.Context, db *sql.DB, table, column string) (*row, error)
 		return nil, err
 	}
 	var row row
-	if err := result.Scan(&row.table, &row.name, &row.order, &row.dataType); err != nil {
+	var null string
+	if err := result.Scan(&row.table, &row.name, &row.order, &row.dataType, &null); err != nil {
 		return nil, err
 	}
+	row.isNull = IsNull(null)
 	return &row, nil
+}
+
+func IsNull(is string) bool {
+	if is == "YES" {
+		return true
+	}
+	return false
 }
 
 func getRows(ctx context.Context, db *sql.DB, table string) (Rows, error) {
@@ -251,11 +261,12 @@ func getRows(ctx context.Context, db *sql.DB, table string) (Rows, error) {
 	defer result.Close()
 	for result.Next() {
 		var row row
-		if err := result.Scan(&row.name, &row.order, &row.dataType, &row.isNull); err != nil {
+		var null string
+		if err := result.Scan(&row.name, &row.order, &row.dataType, &null); err != nil {
 			return nil, err
 		}
+		row.isNull = IsNull(null)
 		row.table = table
-		row.Referenced = make(Rows, 10)
 		rows = append(rows, row)
 	}
 	return rows, nil

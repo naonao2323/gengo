@@ -12,7 +12,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const URL = "postgres://root:rootpass@localhost:2000/app?sslmode=disable"
+var URL = "postgres://root:rootpass@localhost:2000/app?sslmode=disable"
+
+func init() {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		dsn = "postgres://root:rootpass@localhost:2000/app?sslmode=disable"
+	}
+	URL = dsn
+}
 
 // / user table  memo table			good table		comment table
 // / id int      id int				id int			id int
@@ -151,4 +159,99 @@ func Test_FetchTables(t *testing.T) {
 
 func Test_GetRows(t *testing.T) {
 	t.Parallel()
+	tests := []struct {
+		name   string
+		table  string
+		expect Rows
+	}{
+		{
+			name:  "get user table",
+			table: "users",
+			expect: Rows{
+				{
+					name:       "id",
+					table:      "users",
+					order:      1,
+					isNull:     false,
+					dataType:   "integer",
+					Referenced: nil,
+				},
+			},
+		},
+		{
+			name:  "get memo table",
+			table: "memos",
+			expect: Rows{
+				{
+					name:       "id",
+					table:      "memos",
+					order:      1,
+					isNull:     false,
+					dataType:   "integer",
+					Referenced: nil,
+				},
+				{
+					name:     "user_id",
+					table:    "memos",
+					order:    2,
+					isNull:   true,
+					dataType: "integer",
+					Referenced: []row{
+						{
+							name:       "id",
+							table:      "users",
+							order:      1,
+							isNull:     false,
+							dataType:   "integer",
+							Referenced: nil,
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "get comment table",
+			table: "comments",
+			expect: Rows{
+				{
+					name:       "id",
+					table:      "comments",
+					order:      1,
+					isNull:     false,
+					dataType:   "integer",
+					Referenced: nil,
+				},
+				{
+					name:     "memo_id",
+					table:    "comments",
+					order:    2,
+					isNull:   true,
+					dataType: "integer",
+					Referenced: Rows{
+						{
+							name:       "id",
+							table:      "memos",
+							order:      1,
+							isNull:     false,
+							dataType:   "integer",
+							Referenced: nil,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, _test := range tests {
+		test := _test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			db := NewDB(URL)
+			rows, err := GetRows(ctx, db, test.table, 10)
+			require.NoError(t, err)
+			fmt.Printf("ssssss%+v\n", rows)
+			assert.Equal(t, test.expect, rows)
+		})
+	}
 }
