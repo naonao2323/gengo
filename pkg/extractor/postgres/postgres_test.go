@@ -14,7 +14,7 @@ import (
 var URL = "postgres://root:rootpass@localhost:2000/app?sslmode=disable"
 
 func init() {
-	dsn := os.Getenv("DATABASE_URL")
+	dsn := os.Getenv("POSTGRES_URL")
 	if dsn == "" {
 		dsn = "postgres://root:rootpass@localhost:2000/app?sslmode=disable"
 	}
