@@ -146,3 +146,97 @@ func getForeignConstraints(ctx context.Context, db *sql.DB, table string) ([]str
 	}
 	return constraints, nil
 }
+
+type table struct {
+	name    string
+	columns []column
+}
+
+type column struct {
+	name     string
+	isNull   string
+	order    int
+	dataType string
+}
+
+type (
+	tableName = string
+	Tables    map[tableName]table
+)
+
+func InitTables(ctx context.Context, db *sql.DB, schema string) Tables {
+	tables := make(Tables)
+	tableNames, err := listTableNames(ctx, db, schema)
+	if err != nil {
+		panic(err)
+	}
+	for i := range tableNames {
+		table, err := fetchTable(ctx, db, tableNames[i])
+		if err != nil {
+			panic(err)
+		}
+		if table == nil {
+			panic("no table")
+		}
+		tables[table.name] = *table
+
+	}
+	return tables
+}
+
+func fetchTable(ctx context.Context, db *sql.DB, name string) (*table, error) {
+	result, err := db.QueryContext(
+		ctx,
+		`
+		SELECT
+			column_name,
+			is_nullable,
+			ordinal_position,
+			data_type
+		FROM information_schema.columns
+		WHERE table_name = $1
+		`,
+		name,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer result.Close()
+	columns := make([]column, 0, 10)
+	for result.Next() {
+		column := new(column)
+		if err := result.Scan(&column.name, &column.isNull, &column.order, &column.dataType); err != nil {
+			return nil, err
+		}
+		columns = append(columns, *column)
+	}
+	return &table{name, columns}, nil
+}
+
+func listTableNames(ctx context.Context, db *sql.DB, schema string) ([]string, error) {
+	result, err := db.QueryContext(
+		ctx,
+		`
+		SELECT table_name
+		FROM information_schema.tables
+		WHERE table_schema = $1
+		`,
+		schema,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer result.Close()
+	tables := make([]string, 0, 100)
+	for result.Next() {
+		table := new(string)
+		if err := result.Scan(table); err != nil {
+			return nil, err
+		}
+		if *table == "" {
+			return nil, nil
+		}
+		tables = append(tables, *table)
+	}
+	return tables, nil
+}
