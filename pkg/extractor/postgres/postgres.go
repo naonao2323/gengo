@@ -146,3 +146,58 @@ func getForeignConstraints(ctx context.Context, db *sql.DB, table string) ([]str
 	}
 	return constraints, nil
 }
+
+type table struct {
+	name    string
+	columns []column
+}
+
+type column struct {
+	name     string
+	isNull   string
+	isUnique string
+	dataType string
+}
+
+type (
+	tableName = string
+	Tables    map[tableName]table
+)
+
+func InitTables(ctx context.Context, db *sql.DB, schema string) Tables {
+	tables := make(Tables)
+	tableNames, err := listTableNames(ctx, db, schema)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%v\n", tableNames)
+	return tables
+}
+
+func listTableNames(ctx context.Context, db *sql.DB, schema string) ([]string, error) {
+	result, err := db.QueryContext(
+		ctx,
+		`
+		SELECT table_name
+		FROM information_schema.tables
+		WHERE table_schema = $1
+		`,
+		schema,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer result.Close()
+	tables := make([]string, 0, 100)
+	for result.Next() {
+		table := new(string)
+		if err := result.Scan(table); err != nil {
+			return nil, err
+		}
+		if *table == "" {
+			return nil, nil
+		}
+		tables = append(tables, *table)
+	}
+	return tables, nil
+}

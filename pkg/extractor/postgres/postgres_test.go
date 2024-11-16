@@ -212,3 +212,28 @@ func TestGetForeignKeyTree(t *testing.T) {
 		})
 	}
 }
+
+func Test_InitTables(t *testing.T) {
+	tests := []struct {
+		name     string
+		schema   string
+		expected Tables
+	}{
+		{
+			name:     "There are tables associated with the schema",
+			schema:   "public",
+			expected: Tables{},
+		},
+	}
+
+	for _, _test := range tests {
+		test := _test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			db := NewDB(URL)
+			tables := InitTables(ctx, db, test.schema)
+			assert.Equal(t, test.expected, tables)
+		})
+	}
+}
