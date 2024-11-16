@@ -157,7 +157,7 @@ type column struct {
 	isNull   string
 	isPk     bool
 	order    int
-	dataType string
+	dataType PostgresDataType
 }
 
 type (
@@ -173,6 +173,34 @@ func (ts Tables) GetPk(table string) []string {
 		}
 	}
 	return resp
+}
+
+func (ts Tables) GetColumns(table string) []column {
+	return ts[table].columns
+}
+
+func (ts Tables) GetColumnNames(table string) []string {
+	columns := make([]string, 0, len(ts[table].columns))
+	for i := range ts[table].columns {
+		columns = append(columns, ts[table].columns[i].name)
+	}
+	return columns
+}
+
+func (ts Tables) GetColumnType(table string) (func(column string) PostgresDataType, error) {
+	fetcher := func(column string) PostgresDataType {
+		v, ok := ts[table]
+		if !ok {
+			return -1
+		}
+		for i := range v.columns {
+			if column == v.columns[i].name {
+				return v.columns[i].dataType
+			}
+		}
+		return -1
+	}
+	return fetcher, nil
 }
 
 func InitTables(ctx context.Context, db *sql.DB, schema string) Tables {
@@ -232,9 +260,15 @@ func fetchTable(ctx context.Context, db *sql.DB, name string) (*table, error) {
 	columns := make([]column, 0, 10)
 	for result.Next() {
 		column := new(column)
-		if err := result.Scan(&column.name, &column.isNull, &column.order, &column.dataType, &column.isPk); err != nil {
+		dataType := new(string)
+		if err := result.Scan(&column.name, &column.isNull, &column.order, &dataType, &column.isPk); err != nil {
 			return nil, err
 		}
+		converted, err := convert(*dataType)
+		if err != nil {
+			return nil, err
+		}
+		column.dataType = converted
 		columns = append(columns, *column)
 	}
 	return &table{name, columns}, nil
@@ -266,4 +300,62 @@ func listTableNames(ctx context.Context, db *sql.DB, schema string) ([]string, e
 		tables = append(tables, *table)
 	}
 	return tables, nil
+}
+
+type PostgresDataType int
+
+const (
+	INTEGER PostgresDataType = iota
+	BIGINT
+	SMALLINT
+	NUMERIC
+	DECIMAL
+	REAL
+	DOUBLE
+	DOUBLEPRECISION
+	TEXT
+	VARCHAR
+	CHAR
+	DATE
+	TIME
+	TIMESTAMP
+	INTERVAL
+	BOOLEAN
+	INTEGERARRAY
+	TEXTARRAY
+	JSON
+	JSONB
+	UUID
+)
+
+func convert(dataType string) (PostgresDataType, error) {
+	dataTypeMap := map[string]PostgresDataType{
+		"integer":           INTEGER,
+		"bigint":            BIGINT,
+		"smallint":          SMALLINT,
+		"numeric":           NUMERIC,
+		"decimal":           DECIMAL,
+		"real":              REAL,
+		"double":            DOUBLE,
+		"double precision":  DOUBLEPRECISION,
+		"text":              TEXT,
+		"varchar":           VARCHAR,
+		"character varying": VARCHAR,
+		"char":              CHAR,
+		"date":              DATE,
+		"time":              TIME,
+		"timestamp":         TIMESTAMP,
+		"interval":          INTERVAL,
+		"boolean":           BOOLEAN,
+		"integer[]":         INTEGERARRAY,
+		"text[]":            TEXTARRAY,
+		"json":              JSON,
+		"jsonb":             JSONB,
+		"uuid":              UUID,
+	}
+	normalized := strings.ToLower(dataType)
+	if postgresType, exists := dataTypeMap[normalized]; exists {
+		return postgresType, nil
+	}
+	return -1, fmt.Errorf("unknown Postgres data type: %s", dataType)
 }
