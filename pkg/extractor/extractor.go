@@ -1,30 +1,47 @@
 package extractor
 
-// type ExtractGetter interface{}
+import (
+	"context"
 
-// type Provider int
+	"github.com/naonao2323/testgen/pkg/extractor/postgres"
+)
 
-// const (
-// 	Mysql Provider = iota
-// 	Postgres
-// )
+type ExtractGetter interface {
+	GetPk(table string) []string
+}
 
-// // 再帰的な処理のロジックはこっちに持たせる。
-// func Extract(provider Provider, schema string) ExtractGetter {
-// 	var extract extract
-// 	switch provider {
-// 	case Mysql:
-// 	case Postgres:
-// 		conn := postgres.NewDB()
-// 		ctx := context.Background()
-// 		extract.tables = createTableTree(ctx, schema, conn, Postgres)
-// 	}
-// 	return extract
-// }
+type Provider int
 
-// type extract struct {
-// 	tables []table
-// }
+const (
+	Mysql Provider = iota
+	Postgres
+)
+
+func (e extract) GetPk(table string) []string {
+	return e.tables.GetPk(table)
+}
+
+func Extract(ctx context.Context, provider Provider, schema string, source string) ExtractGetter {
+	extract := new(extract)
+	switch provider {
+	case Mysql:
+	case Postgres:
+		db := postgres.NewDB(source)
+		extract.tables = postgres.InitTables(ctx, db, schema)
+	}
+	return extract
+}
+
+type extract struct {
+	tables TablesGetter
+	// tableTree TableTreeGetter
+}
+
+type TablesGetter interface {
+	GetPk(table string) []string
+}
+
+type TableTreeGetter interface{}
 
 // type table struct {
 // 	columns []column

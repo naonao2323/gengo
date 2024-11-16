@@ -155,6 +155,7 @@ type table struct {
 type column struct {
 	name     string
 	isNull   string
+	isPk     bool
 	order    int
 	dataType string
 }
@@ -163,6 +164,16 @@ type (
 	tableName = string
 	Tables    map[tableName]table
 )
+
+func (ts Tables) GetPk(table string) []string {
+	resp := make([]string, 0, len(ts[table].columns))
+	for _, c := range ts[table].columns {
+		if c.isPk {
+			resp = append(resp, c.name)
+		}
+	}
+	return resp
+}
 
 func InitTables(ctx context.Context, db *sql.DB, schema string) Tables {
 	tables := make(Tables)
@@ -189,12 +200,28 @@ func fetchTable(ctx context.Context, db *sql.DB, name string) (*table, error) {
 		ctx,
 		`
 		SELECT
-			column_name,
-			is_nullable,
-			ordinal_position,
-			data_type
-		FROM information_schema.columns
-		WHERE table_name = $1
+			c.column_name,
+			c.is_nullable,
+			c.ordinal_position,
+			c.data_type,
+			CASE
+				WHEN kcu.column_name IS NOT NULL THEN 'TRUE'
+				ELSE 'FALSE'
+			END AS is_pk
+		FROM
+    		information_schema.columns c
+		LEFT JOIN
+			information_schema.key_column_usage kcu
+			ON c.table_name = kcu.table_name
+			AND c.column_name = kcu.column_name
+			AND kcu.constraint_name IN (
+				SELECT constraint_name
+				FROM information_schema.table_constraints
+				WHERE table_name = c.table_name
+				AND constraint_type = 'PRIMARY KEY'
+			)
+		WHERE
+			c.table_name = $1
 		`,
 		name,
 	)
@@ -205,7 +232,7 @@ func fetchTable(ctx context.Context, db *sql.DB, name string) (*table, error) {
 	columns := make([]column, 0, 10)
 	for result.Next() {
 		column := new(column)
-		if err := result.Scan(&column.name, &column.isNull, &column.order, &column.dataType); err != nil {
+		if err := result.Scan(&column.name, &column.isNull, &column.order, &column.dataType, &column.isPk); err != nil {
 			return nil, err
 		}
 		columns = append(columns, *column)
