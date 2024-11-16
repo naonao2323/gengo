@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
-	"time"
 
 	_ "github.com/lib/pq"
 )
@@ -18,136 +17,134 @@ func NewDB(dataSource string) *sql.DB {
 	return db
 }
 
-type (
-	table struct {
-		tableName string
-		tableType string
-	}
-	Tables []table
-	row    struct {
-		name       string
-		table      string
-		order      int
-		isNull     bool
-		dataType   string
-		Referenced []row
-	}
-	Rows []row
-)
-
-func catch() {
-	if err := recover(); err != nil {
-		println(err)
-	}
+// 外部キーの依存関係を持たせる。
+// Fkeyは、自分のキー
+type FKey struct {
+	name   string
+	isNull bool
+}
+type FKeyTree struct {
+	table      string
+	referenced map[FKey]FKeyTree
 }
 
-func FetchTables(ctx context.Context, db *sql.DB, schema string) (Tables, error) {
-	defer catch()
-	var tables Tables
-	result, err := db.QueryContext(
-		ctx,
-		`SELECT table_name, table_type
-		 FROM information_schema.tables
-		 WHERE table_schema = $1`,
-		schema,
-	)
+func InitForeignKeyTree(ctx context.Context, db *sql.DB, entrypointTable string) (FKeyTree, error) {
+	var tree FKeyTree
+	tree.table = entrypointTable
+	foreignKeyConstraints, err := getForeignConstraints(ctx, db, entrypointTable)
 	if err != nil {
-		fmt.Println("query with context error")
+		return tree, err
+	}
+	refer, err := getReferenced(ctx, db, foreignKeyConstraints)
+	if err != nil {
+		return tree, err
+	}
+	tree.referenced = refer
+	for k, v := range tree.referenced {
+		tree.referenced[k], err = InitForeignKeyTree(ctx, db, v.table)
+		if err != nil {
+			return tree, err
+		}
+	}
+	return tree, nil
+}
+
+func getReferenced(ctx context.Context, db *sql.DB, constraints []string) (map[FKey]FKeyTree, error) {
+	if len(constraints) <= 0 {
+		return nil, nil
+	}
+	tree := make(map[FKey]FKeyTree, len(constraints))
+	placdholder := func(v ...string) string {
+		var b strings.Builder
+		for i := range v {
+			b.Grow(len(v[i]) + 3)
+			b.WriteString("'")
+			b.WriteString(v[i])
+			b.WriteString("'")
+			if i != len(v)-1 {
+				b.WriteString(",")
+			}
+		}
+		return b.String()
+	}
+	isNull := func(v string) bool {
+		if v == "YES" {
+			return true
+		}
+		return false
+	}
+	query := fmt.Sprintf(
+		`SELECT
+			src_col.attname AS source_column,
+			tgt_table.relname AS target_table
+		FROM
+			pg_constraint con
+		JOIN
+			pg_class src_table ON con.conrelid = src_table.oid
+		JOIN
+			pg_class tgt_table ON con.confrelid = tgt_table.oid
+		JOIN
+			pg_attribute src_col ON src_col.attnum = ANY(con.conkey) AND src_col.attrelid = src_table.oid
+		JOIN
+			pg_attribute tgt_col ON tgt_col.attnum = ANY(con.confkey) AND tgt_col.attrelid = tgt_table.oid
+		WHERE
+			con.contype = 'f' AND con.conname IN (%s);
+		`,
+		placdholder(constraints...),
+	)
+	result, err := db.QueryContext(ctx, query)
+	if err != nil {
 		return nil, err
 	}
 	defer result.Close()
+	type pair struct {
+		sourceColumn string
+		targetTable  string
+	}
+	pairs := make([]pair, 0, len(constraints))
 	for result.Next() {
-		var table table
-		if err := result.Scan(&table.tableName, &table.tableType); err != nil {
-			println("table error")
+		var pair pair
+		if err := result.Scan(&pair.sourceColumn, &pair.targetTable); err != nil {
 			return nil, err
 		}
-		tables = append(tables, table)
+		pairs = append(pairs, pair)
 	}
-	return tables, nil
-}
-
-// 再帰処理をするところをここにリフトアップ
-// これだと最初のtableの外部キーしか考慮できてない
-func GetRows(ctx context.Context, db *sql.DB, table string, timeout time.Duration) (Rows, error) {
-	// timeoutを設定できるようにするdefault 10秒
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	defer catch()
-	rows, err := getRows(ctx, db, table)
-	if err != nil {
-		return nil, err
-	}
-	for i := range rows {
-		rows[i].createTableTree(ctx, db)
-	}
-	return rows, nil
-}
-
-// これは絡むひとつしか対応してない
-func (r *row) createTableTree(ctx context.Context, db *sql.DB) error {
-	constraints, err := getConstraints(ctx, db, r.table, r.name)
-	if err != nil {
-		return err
-	}
-	filtered, err := filterConstraints(ctx, db, constraints, r.table)
-	if err != nil {
-		return err
-	}
-	if len(filtered) <= 0 {
-		return nil
-	}
-	referenced, err := getReferencedRows(ctx, db, filtered)
-	if err != nil {
-		return err
-	}
-	for i := range referenced {
-		referenced[i].createTableTree(ctx, db)
-	}
-	r.Referenced = referenced
-	return nil
-}
-
-func filterConstraints(ctx context.Context, db *sql.DB, constraints []string, targetTable string) ([]string, error) {
-	filtered := make([]string, 0, len(constraints))
-	for _, constraint := range constraints {
-		result := db.QueryRowContext(
-			ctx,
-			`
-				SELECT table_name, column_name
-				FROM information_schema.constraint_column_usage
-				WHERE constraint_name = $1
-				`,
-			constraint,
+	for i := range pairs {
+		result := db.QueryRow(
+			`SELECT
+				column_name,
+				is_nullable
+			FROM information_schema.columns
+			WHERE column_name = $1;
+			`,
+			pairs[i].sourceColumn,
 		)
-		var referedTable, referedColumn string
-		if err := result.Scan(&referedTable, &referedColumn); err != nil {
+		if err := result.Err(); err != nil {
 			return nil, err
 		}
-		if targetTable != referedTable {
-			filtered = append(filtered, constraint)
+		var fkey FKey
+		var null string
+		if err := result.Scan(&fkey.name, &null); err != nil {
+			return nil, err
+		}
+		fkey.isNull = isNull(null)
+		tree[fkey] = FKeyTree{
+			table: pairs[i].targetTable,
 		}
 	}
-	return filtered, nil
+	return tree, nil
 }
 
-func getConstraints(ctx context.Context, db *sql.DB, table, column string) ([]string, error) {
+func getForeignConstraints(ctx context.Context, db *sql.DB, table string) ([]string, error) {
 	result, err := db.QueryContext(
 		ctx,
-		`SELECT
-			constraint_name
-		 FROM
-		 	information_schema.key_column_usage
-		 WHERE
-		 	table_name = $1
-			AND
-			column_name = $2
+		`SELECT constraint_name
+		FROM information_schema.table_constraints
+		WHERE table_name = $1 AND constraint_type = 'FOREIGN KEY'
 		`,
 		table,
-		column,
 	)
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 	defer result.Close()
@@ -155,119 +152,9 @@ func getConstraints(ctx context.Context, db *sql.DB, table, column string) ([]st
 	for result.Next() {
 		var constraint string
 		if err := result.Scan(&constraint); err != nil {
-			fmt.Println(err)
 			return nil, err
 		}
 		constraints = append(constraints, constraint)
 	}
 	return constraints, nil
-}
-
-func getReferencedRows(ctx context.Context, db *sql.DB, constraints []string) ([]row, error) {
-	rows := make([]row, 0, len(constraints))
-	buildIn := func(constraints []string) string {
-		var builder strings.Builder
-		for i := range constraints {
-			builder.Grow(len(constraints[i]) + 2)
-			builder.WriteString("'")
-			builder.WriteString(constraints[i])
-			builder.WriteString("'")
-			if i != len(constraints)-1 {
-				builder.WriteRune(',')
-			}
-		}
-		return builder.String()
-	}
-	query := fmt.Sprintf(`
-	SELECT table_name, column_name
-	FROM information_schema.constraint_column_usage
-	WHERE constraint_name IN (%s)`, buildIn(constraints))
-	result, err := db.QueryContext(
-		ctx,
-		query,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer result.Close()
-	for result.Next() {
-		var table, column string
-		if err := result.Scan(&table, &column); err != nil {
-			return nil, err
-		}
-		row, err := getRow(ctx, db, table, column)
-		if err != nil {
-			return nil, err
-		}
-		if row != nil {
-			rows = append(rows, *row)
-		}
-	}
-	return rows, nil
-}
-
-func getRow(ctx context.Context, db *sql.DB, table, column string) (*row, error) {
-	result := db.QueryRowContext(
-		ctx,
-		`
-		SELECT
-			table_name,
-			column_name,
-			ordinal_position,
-			data_type,
-			is_nullable
-		FROM information_schema.columns
-		WHERE table_name = $1 AND column_name = $2;
-		`,
-		table,
-		column,
-	)
-	if err := result.Err(); err != nil {
-		return nil, err
-	}
-	var row row
-	var null string
-	if err := result.Scan(&row.table, &row.name, &row.order, &row.dataType, &null); err != nil {
-		return nil, err
-	}
-	row.isNull = IsNull(null)
-	return &row, nil
-}
-
-func IsNull(is string) bool {
-	if is == "YES" {
-		return true
-	}
-	return false
-}
-
-func getRows(ctx context.Context, db *sql.DB, table string) (Rows, error) {
-	result, err := db.QueryContext(
-		ctx,
-		`SELECT
-			column_name,
-			ordinal_position,
-			data_type,
-			is_nullable
-		FROM information_schema.columns
-		WHERE table_name = $1;
-		`,
-		table,
-	)
-	if err != nil {
-		return nil, err
-	}
-	var rows Rows
-	defer result.Close()
-	for result.Next() {
-		var row row
-		var null string
-		if err := result.Scan(&row.name, &row.order, &row.dataType, &null); err != nil {
-			return nil, err
-		}
-		row.isNull = IsNull(null)
-		row.table = table
-		rows = append(rows, row)
-	}
-	return rows, nil
 }

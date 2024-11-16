@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
-	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -22,9 +21,10 @@ func init() {
 	URL = dsn
 }
 
-// / user table  memo table			good table		comment table
-// / id int      id int				id int			id int
+// / user table  memo table			good table		comment table	blog table
+// / id int      id int				id int			id int			id int
 // /             user_id int(FK)	user_id int(FK)	memo_id int(FK)
+// /			 blog_id int(FK)
 func migrate(db *sql.DB) error {
 	tx, err := db.Begin()
 	withRollback := func(qeury string) error {
@@ -43,7 +43,10 @@ func migrate(db *sql.DB) error {
 	if err := withRollback(`CREATE TABLE users (id INT PRIMARY KEY)`); err != nil {
 		return err
 	}
-	if err := withRollback(`CREATE TABLE memos (id INT PRIMARY KEY,user_id INT,FOREIGN KEY (user_id) REFERENCES users(id))`); err != nil {
+	if err := withRollback(`CREATE TABLE blogs (id INT PRIMARY KEY)`); err != nil {
+		return err
+	}
+	if err := withRollback(`CREATE TABLE memos (id INT PRIMARY KEY,user_id INT,FOREIGN KEY (user_id) REFERENCES users(id), blog_id INT, FOREIGN KEY (blog_id) REFERENCES blogs(id))`); err != nil {
 		return err
 	}
 	if err := withRollback(`CREATE TABLE goods (id INT PRIMARY KEY,user_id INT,FOREIGN KEY (user_id) REFERENCES users(id))`); err != nil {
@@ -85,6 +88,9 @@ func drop(db *sql.DB) error {
 	if err := withRollback(`DROP TABLE users`); err != nil {
 		return err
 	}
+	if err := withRollback(`DROP TABLE blogs`); err != nil {
+		return err
+	}
 	if err := tx.Commit(); err != nil {
 		return err
 	}
@@ -106,138 +112,18 @@ func TestMain(m *testing.M) {
 	}
 }
 
-func Test_FetchTables(t *testing.T) {
+func TestGetForeignKeyTree(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name     string
-		schema   string
-		expected Tables
+		table    string
+		expected FKeyTree
 	}{
 		{
-			"no tables belong to schema",
-			"none",
-			nil,
-		},
-		{
-			"3 tables belong to schema",
-			"public",
-			Tables{
-				table{
-					"users",
-					"BASE TABLE",
-				},
-				table{
-					"comments",
-					"BASE TABLE",
-				},
-				table{
-					"memos",
-					"BASE TABLE",
-				},
-				table{
-					"goods",
-					"BASE TABLE",
-				},
-			},
-		},
-	}
-
-	for _, _test := range tests {
-		test := _test
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			ctx := context.Background()
-			db := NewDB(URL)
-			tables, err := FetchTables(ctx, db, test.schema)
-			require.NoError(t, err)
-			sort.Slice(test.expected, func(i, j int) bool { return test.expected[i].tableName > test.expected[j].tableName })
-			sort.Slice(tables, func(i, j int) bool { return tables[i].tableName > tables[j].tableName })
-			assert.Equal(t, test.expected, tables)
-		})
-	}
-}
-
-func Test_GetRows(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name   string
-		table  string
-		expect Rows
-	}{
-		{
-			name:  "get user table",
-			table: "users",
-			expect: Rows{
-				{
-					name:       "id",
-					table:      "users",
-					order:      1,
-					isNull:     false,
-					dataType:   "integer",
-					Referenced: nil,
-				},
-			},
-		},
-		{
-			name:  "get memo table",
-			table: "memos",
-			expect: Rows{
-				{
-					name:       "id",
-					table:      "memos",
-					order:      1,
-					isNull:     false,
-					dataType:   "integer",
-					Referenced: nil,
-				},
-				{
-					name:     "user_id",
-					table:    "memos",
-					order:    2,
-					isNull:   true,
-					dataType: "integer",
-					Referenced: []row{
-						{
-							name:       "id",
-							table:      "users",
-							order:      1,
-							isNull:     false,
-							dataType:   "integer",
-							Referenced: nil,
-						},
-					},
-				},
-			},
-		},
-		{
-			name:  "get comment table",
+			name:  "return nil",
 			table: "comments",
-			expect: Rows{
-				{
-					name:       "id",
-					table:      "comments",
-					order:      1,
-					isNull:     false,
-					dataType:   "integer",
-					Referenced: nil,
-				},
-				{
-					name:     "memo_id",
-					table:    "comments",
-					order:    2,
-					isNull:   true,
-					dataType: "integer",
-					Referenced: Rows{
-						{
-							name:       "id",
-							table:      "memos",
-							order:      1,
-							isNull:     false,
-							dataType:   "integer",
-							Referenced: nil,
-						},
-					},
-				},
+			expected: FKeyTree{
+				table: "users",
 			},
 		},
 	}
@@ -248,10 +134,11 @@ func Test_GetRows(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
 			db := NewDB(URL)
-			rows, err := GetRows(ctx, db, test.table, 10)
+			result, err := InitForeignKeyTree(ctx, db, test.table)
 			require.NoError(t, err)
-			fmt.Printf("ssssss%+v\n", rows)
-			assert.Equal(t, test.expect, rows)
+			fmt.Println("=============test=============")
+			fmt.Printf("%v\n", result)
+			assert.Equal(t, test.expected, result)
 		})
 	}
 }
