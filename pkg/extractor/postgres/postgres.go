@@ -68,10 +68,7 @@ func getReferenced(ctx context.Context, db *sql.DB, constraints []string) (map[F
 		return b.String()
 	}
 	isNull := func(v string) bool {
-		if v == "YES" {
-			return true
-		}
-		return false
+		return v == "YES"
 	}
 	query := fmt.Sprintf(
 		`SELECT
@@ -103,11 +100,11 @@ func getReferenced(ctx context.Context, db *sql.DB, constraints []string) (map[F
 	}
 	pairs := make([]pair, 0, len(constraints))
 	for result.Next() {
-		var pair pair
+		pair := new(pair)
 		if err := result.Scan(&pair.sourceColumn, &pair.targetTable); err != nil {
 			return nil, err
 		}
-		pairs = append(pairs, pair)
+		pairs = append(pairs, *pair)
 	}
 	for i := range pairs {
 		result := db.QueryRow(

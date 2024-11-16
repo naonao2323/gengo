@@ -1,0 +1,32 @@
+linters-settings:
+  govet:
+    check-shadowing: true
+
+run:
+  timeout: 15m
+  tests: true
+  skip-files:
+    - '_test\.go$'
+
+linters:
+  enable:
+    - goimports
+    - gofmt
+    - gofumpt
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - unused
+    - containedctx
+    - contextcheck
+    - decorder
+    - dogsled
+    - gochecknoinits
+    - goconst
+    - tagliatelle
+    - tparallel
+    - testifylint
+    - misspell
+    - unused
+    - ineffassign
