@@ -188,7 +188,7 @@ func (ts Tables) GetColumnNames(table string) []string {
 	return columns
 }
 
-func (ts Tables) GetColumnType(table string) (func(column string) PostgresDataType, error) {
+func (ts Tables) GetColumnType(table string) (map[string]PostgresDataType, error) {
 	t, ok := ts[table]
 	if !ok {
 		return nil, errors.New("no table")
@@ -197,14 +197,7 @@ func (ts Tables) GetColumnType(table string) (func(column string) PostgresDataTy
 	for i := range t.columns {
 		dataTypes[t.columns[i].name] = t.columns[i].dataType
 	}
-	fetcher := func(column string) PostgresDataType {
-		d, ok := dataTypes[column]
-		if !ok {
-			return -1
-		}
-		return d
-	}
-	return fetcher, nil
+	return dataTypes, nil
 }
 
 func InitTables(ctx context.Context, db *sql.DB, schema string) Tables {

@@ -17,14 +17,17 @@ func (e extract[A]) GetPk(table string) []string {
 }
 
 func (e extract[A]) GetColumns(table string) map[string]GoDataType {
-	get, err := e.tables.GetColumnType(table)
+	columnTypes, err := e.tables.GetColumnType(table)
 	if err != nil {
 		return nil
 	}
 	columns := e.tables.GetColumnNames(table)
 	converted := make(map[string]GoDataType, len(columns))
 	for i := range columns {
-		dataType := get(columns[i])
+		dataType, ok := columnTypes[columns[i]]
+		if !ok {
+			return nil
+		}
 		converted[columns[i]] = convert(dataType)
 	}
 	return converted
@@ -52,7 +55,7 @@ type extract[A postgres.PostgresDataType | mysql.MysqlDataType] struct {
 type TablesGetter[A postgres.PostgresDataType | mysql.MysqlDataType] interface {
 	GetPk(table string) []string
 	GetColumnNames(table string) []string
-	GetColumnType(table string) (func(column string) A, error)
+	GetColumnType(table string) (map[string]A, error)
 }
 
 type TableTreeGetter interface{}
