@@ -120,10 +120,82 @@ func TestGetForeignKeyTree(t *testing.T) {
 		expected FKeyTree
 	}{
 		{
-			name:  "return nil",
-			table: "comments",
+			name:  "fetch users tree",
+			table: "users",
 			expected: FKeyTree{
 				table: "users",
+			},
+		},
+		{
+			name:  "fetch blogs tree",
+			table: "blogs",
+			expected: FKeyTree{
+				table: "blogs",
+			},
+		},
+		{
+			name:  "fetch goods tree",
+			table: "goods",
+			expected: FKeyTree{
+				table: "goods",
+				referenced: map[FKey]FKeyTree{
+					{
+						name:   "user_id",
+						isNull: true,
+					}: {
+						table: "users",
+					},
+				},
+			},
+		},
+		{
+			name:  "fetch memos tree",
+			table: "memos",
+			expected: FKeyTree{
+				table: "memos",
+				referenced: map[FKey]FKeyTree{
+					{
+						name:   "user_id",
+						isNull: true,
+					}: {
+						table: "users",
+					},
+					{
+						name:   "blog_id",
+						isNull: true,
+					}: {
+						table: "blogs",
+					},
+				},
+			},
+		},
+		{
+			name:  "fetch comments tree",
+			table: "comments",
+			expected: FKeyTree{
+				table: "comments",
+				referenced: map[FKey]FKeyTree{
+					{
+						name:   "memo_id",
+						isNull: true,
+					}: {
+						table: "memos",
+						referenced: map[FKey]FKeyTree{
+							{
+								name:   "user_id",
+								isNull: true,
+							}: {
+								table: "users",
+							},
+							{
+								name:   "blog_id",
+								isNull: true,
+							}: {
+								table: "blogs",
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -136,8 +208,6 @@ func TestGetForeignKeyTree(t *testing.T) {
 			db := NewDB(URL)
 			result, err := InitForeignKeyTree(ctx, db, test.table)
 			require.NoError(t, err)
-			fmt.Println("=============test=============")
-			fmt.Printf("%v\n", result)
 			assert.Equal(t, test.expected, result)
 		})
 	}
