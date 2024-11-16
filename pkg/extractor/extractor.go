@@ -64,12 +64,12 @@ package extractor
 // 				referenced: new(column),
 // 			}
 // 			// モリモリのきがくる
-// 			refered, err := postgres.GetReferencedRow(ctx, conn, rows[j])
+// 			referred, err := postgres.GetReferencedRow(ctx, conn, rows[j])
 // 			if err != nil {
 // 				panic(err)
 // 			}
-// 			// refered.Next()で呼び出して木の再現をしたい。
-// 			// referedを打ちこむ
+// 			// referred.Next()で呼び出して木の再現をしたい。
+// 			// referredを打ちこむ
 // 			// ここで木の探索を行うために、mysqlとpostgresで抽象的な操作をする必要がある。
 // 			table.columns = append(table.columns, column)
 // 		}
@@ -91,9 +91,9 @@ package extractor
 // 	PostgesRowGetter | MysqlRowGetter
 // }
 
-// func RowIterator[A PostgesRowGetter | MysqlRowGetter](refered A) iter.Seq[A] {
+// func RowIterator[A PostgesRowGetter | MysqlRowGetter](referred A) iter.Seq[A] {
 // 	return func(yield func(A) bool) {
-// 		rows := refered.Get()
+// 		rows := referred.Get()
 // 		yield(rows)
 // 	}
 // }

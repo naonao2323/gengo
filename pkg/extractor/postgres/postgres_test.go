@@ -30,8 +30,8 @@ func migrate(db *sql.DB) error {
 	withRollback := func(qeury string) error {
 		_, err = tx.Exec(qeury)
 		if err != nil {
-			if err := tx.Rollback(); err != nil {
-				return err
+			if rerr := tx.Rollback(); rerr != nil {
+				return rerr
 			}
 			return err
 		}
