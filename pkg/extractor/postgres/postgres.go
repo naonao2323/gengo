@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -188,17 +189,20 @@ func (ts Tables) GetColumnNames(table string) []string {
 }
 
 func (ts Tables) GetColumnType(table string) (func(column string) PostgresDataType, error) {
+	t, ok := ts[table]
+	if !ok {
+		return nil, errors.New("no table")
+	}
+	dataTypes := make(map[string]PostgresDataType)
+	for i := range t.columns {
+		dataTypes[t.columns[i].name] = t.columns[i].dataType
+	}
 	fetcher := func(column string) PostgresDataType {
-		v, ok := ts[table]
+		d, ok := dataTypes[column]
 		if !ok {
 			return -1
 		}
-		for i := range v.columns {
-			if column == v.columns[i].name {
-				return v.columns[i].dataType
-			}
-		}
-		return -1
+		return d
 	}
 	return fetcher, nil
 }

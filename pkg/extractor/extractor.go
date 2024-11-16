@@ -17,17 +17,17 @@ func (e extract[A]) GetPk(table string) []string {
 }
 
 func (e extract[A]) GetColumns(table string) map[string]GoDataType {
-	fetcher, err := e.tables.GetColumnType(table)
+	get, err := e.tables.GetColumnType(table)
 	if err != nil {
 		return nil
 	}
 	columns := e.tables.GetColumnNames(table)
-	resp := make(map[string]GoDataType, len(columns))
+	converted := make(map[string]GoDataType, len(columns))
 	for i := range columns {
-		dataType := fetcher(columns[i])
-		resp[columns[i]] = convert(dataType)
+		dataType := get(columns[i])
+		converted[columns[i]] = convert(dataType)
 	}
-	return resp
+	return converted
 }
 
 func Extract(ctx context.Context, provider Provider, schema string, source string) Extractor {
