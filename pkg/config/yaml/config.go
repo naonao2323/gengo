@@ -9,7 +9,6 @@ import (
 type configImpl struct {
 	Schema string `yaml:"schema"`
 	DBURL  string `yaml:"dbUrl"`
-	Deploy Deploy `yaml:"deploy"`
 }
 
 type Deploy = int
@@ -24,7 +23,6 @@ const (
 type Config interface {
 	GetSchema() string
 	GetDBURL() string
-	GetDeploy() Deploy
 }
 
 func NewConfig(path string) (Config, error) {
@@ -54,8 +52,4 @@ func (c configImpl) GetSchema() string {
 
 func (c configImpl) GetDBURL() string {
 	return c.DBURL
-}
-
-func (c configImpl) GetDeploy() Deploy {
-	return c.Deploy
 }
