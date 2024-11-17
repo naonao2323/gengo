@@ -213,7 +213,7 @@ func TestGetForeignKeyTree(t *testing.T) {
 	}
 }
 
-func Test_InitTables(t *testing.T) {
+func TestInitTables(t *testing.T) {
 	tests := []struct {
 		name     string
 		schema   string
@@ -328,6 +328,79 @@ func Test_InitTables(t *testing.T) {
 			db := NewDB(URL)
 			tables := InitTables(ctx, db, test.schema)
 			assert.Equal(t, test.expected, tables)
+		})
+	}
+}
+
+func TestGetPk(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		table  string
+		tables Tables
+		expect []string
+	}{
+		{
+			name:  "there is no pk",
+			table: "users",
+			tables: Tables{
+				"users": table{
+					name: "users",
+					columns: []column{
+						{
+							name: "test",
+							isPk: false,
+						},
+					},
+				},
+			},
+			expect: []string{},
+		},
+		{
+			name:  "there is pk",
+			table: "users",
+			tables: Tables{
+				"users": table{
+					name: "users",
+					columns: []column{
+						{
+							name: "test",
+							isPk: true,
+						},
+					},
+				},
+			},
+			expect: []string{"test"},
+		},
+		{
+			name:  "there are pk",
+			table: "users",
+			tables: Tables{
+				"users": table{
+					name: "users",
+					columns: []column{
+						{
+							name: "test",
+							isPk: true,
+						},
+						{
+							name: "test2",
+							isPk: true,
+						},
+					},
+				},
+			},
+			expect: []string{"test", "test2"},
+		},
+	}
+
+	for _, _test := range tests {
+		test := _test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			actual := test.tables.GetPk(test.table)
+			assert.Equal(t, test.expect, actual)
+			assert.Equal(t, len(test.expect), len(actual))
 		})
 	}
 }
