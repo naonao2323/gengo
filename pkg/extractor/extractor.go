@@ -16,7 +16,6 @@ func (e extract[A]) GetPk(table string) []string {
 	return e.tables.GetPk(table)
 }
 
-// TODO: test
 func (e extract[A]) GetColumns(table string) map[string]GoDataType {
 	columnTypes, err := e.tables.GetColumnType(table)
 	if err != nil {
