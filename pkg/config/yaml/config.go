@@ -11,6 +11,15 @@ type configImpl struct {
 	DBURL  string `yaml:"dbUrl"`
 }
 
+type Deploy = int
+
+const (
+	FrameWork Deploy = iota
+	Dao
+	Fixture
+	Container
+)
+
 type Config interface {
 	GetSchema() string
 	GetDBURL() string
