@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -155,14 +156,50 @@ type table struct {
 type column struct {
 	name     string
 	isNull   string
+	isPk     bool
 	order    int
-	dataType string
+	dataType PostgresDataType
 }
 
 type (
 	tableName = string
 	Tables    map[tableName]table
 )
+
+// TODO: test
+func (ts Tables) GetPk(table string) []string {
+	resp := make([]string, 0, len(ts[table].columns))
+	for _, c := range ts[table].columns {
+		if c.isPk {
+			resp = append(resp, c.name)
+		}
+	}
+	return resp
+}
+
+func (ts Tables) GetColumns(table string) []column {
+	return ts[table].columns
+}
+
+func (ts Tables) GetColumnNames(table string) []string {
+	columns := make([]string, 0, len(ts[table].columns))
+	for i := range ts[table].columns {
+		columns = append(columns, ts[table].columns[i].name)
+	}
+	return columns
+}
+
+func (ts Tables) GetColumnType(table string) (map[string]PostgresDataType, error) {
+	t, ok := ts[table]
+	if !ok {
+		return nil, errors.New("no table")
+	}
+	dataTypes := make(map[string]PostgresDataType)
+	for i := range t.columns {
+		dataTypes[t.columns[i].name] = t.columns[i].dataType
+	}
+	return dataTypes, nil
+}
 
 func InitTables(ctx context.Context, db *sql.DB, schema string) Tables {
 	tables := make(Tables)
@@ -189,12 +226,28 @@ func fetchTable(ctx context.Context, db *sql.DB, name string) (*table, error) {
 		ctx,
 		`
 		SELECT
-			column_name,
-			is_nullable,
-			ordinal_position,
-			data_type
-		FROM information_schema.columns
-		WHERE table_name = $1
+			c.column_name,
+			c.is_nullable,
+			c.ordinal_position,
+			c.data_type,
+			CASE
+				WHEN kcu.column_name IS NOT NULL THEN 'TRUE'
+				ELSE 'FALSE'
+			END AS is_pk
+		FROM
+    		information_schema.columns c
+		LEFT JOIN
+			information_schema.key_column_usage kcu
+			ON c.table_name = kcu.table_name
+			AND c.column_name = kcu.column_name
+			AND kcu.constraint_name IN (
+				SELECT constraint_name
+				FROM information_schema.table_constraints
+				WHERE table_name = c.table_name
+				AND constraint_type = 'PRIMARY KEY'
+			)
+		WHERE
+			c.table_name = $1
 		`,
 		name,
 	)
@@ -205,9 +258,15 @@ func fetchTable(ctx context.Context, db *sql.DB, name string) (*table, error) {
 	columns := make([]column, 0, 10)
 	for result.Next() {
 		column := new(column)
-		if err := result.Scan(&column.name, &column.isNull, &column.order, &column.dataType); err != nil {
+		dataType := new(string)
+		if err := result.Scan(&column.name, &column.isNull, &column.order, &dataType, &column.isPk); err != nil {
 			return nil, err
 		}
+		converted, err := convert(*dataType)
+		if err != nil {
+			return nil, err
+		}
+		column.dataType = converted
 		columns = append(columns, *column)
 	}
 	return &table{name, columns}, nil
@@ -239,4 +298,62 @@ func listTableNames(ctx context.Context, db *sql.DB, schema string) ([]string, e
 		tables = append(tables, *table)
 	}
 	return tables, nil
+}
+
+type PostgresDataType int
+
+const (
+	INTEGER PostgresDataType = iota
+	BIGINT
+	SMALLINT
+	NUMERIC
+	DECIMAL
+	REAL
+	DOUBLE
+	DOUBLEPRECISION
+	TEXT
+	VARCHAR
+	CHAR
+	DATE
+	TIME
+	TIMESTAMP
+	INTERVAL
+	BOOLEAN
+	INTEGERARRAY
+	TEXTARRAY
+	JSON
+	JSONB
+	UUID
+)
+
+func convert(dataType string) (PostgresDataType, error) {
+	dataTypeMap := map[string]PostgresDataType{
+		"integer":           INTEGER,
+		"bigint":            BIGINT,
+		"smallint":          SMALLINT,
+		"numeric":           NUMERIC,
+		"decimal":           DECIMAL,
+		"real":              REAL,
+		"double":            DOUBLE,
+		"double precision":  DOUBLEPRECISION,
+		"text":              TEXT,
+		"varchar":           VARCHAR,
+		"character varying": VARCHAR,
+		"char":              CHAR,
+		"date":              DATE,
+		"time":              TIME,
+		"timestamp":         TIMESTAMP,
+		"interval":          INTERVAL,
+		"boolean":           BOOLEAN,
+		"integer[]":         INTEGERARRAY,
+		"text[]":            TEXTARRAY,
+		"json":              JSON,
+		"jsonb":             JSONB,
+		"uuid":              UUID,
+	}
+	normalized := strings.ToLower(dataType)
+	if postgresType, exists := dataTypeMap[normalized]; exists {
+		return postgresType, nil
+	}
+	return -1, fmt.Errorf("unknown Postgres data type: %s", dataType)
 }

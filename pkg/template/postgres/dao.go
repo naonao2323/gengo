@@ -23,7 +23,7 @@ func (d {{.TableName }}Dao) Update(pk int, target {{.StructName}}) (int, error) 
 	return m
 }
 
-func (d {{.TableName }}Dao) Create() (int, error) {
+func (d {{.TableName }}Dao) Create(target {{.StructName}}) (int, error) {
 	m, err := db.Exec("INSERT INTO {{.TableName}} VALUES ({{- range .Fields }}{{ .Name }}{{- end }});")
 	if err != nil {
 		return 0, err
@@ -39,7 +39,7 @@ func (d {{.TableName }}Dao) Delete(pk int) (int, error) {
 	return m
 }
 
-func (d {{.TableName }}Dao) List(){
+func (d {{.TableName }}Dao) []{{.StructName}}{
 	m, err := db.QueryRow("")
 	if err != nil {
 		return nil, err
