@@ -1,125 +1,113 @@
 package extractor
 
-// type ExtractGetter interface{}
+import (
+	"context"
 
-// type Provider int
+	"github.com/naonao2323/testgen/pkg/extractor/mysql"
+	"github.com/naonao2323/testgen/pkg/extractor/postgres"
+)
 
-// const (
-// 	Mysql Provider = iota
-// 	Postgres
-// )
+type Extractor interface {
+	GetPk(table string) []string
+	GetColumns(table string) map[string]GoDataType
+}
 
-// // 再帰的な処理のロジックはこっちに持たせる。
-// func Extract(provider Provider, schema string) ExtractGetter {
-// 	var extract extract
-// 	switch provider {
-// 	case Mysql:
-// 	case Postgres:
-// 		conn := postgres.NewDB()
-// 		ctx := context.Background()
-// 		extract.tables = createTableTree(ctx, schema, conn, Postgres)
-// 	}
-// 	return extract
-// }
+func (e extract[A]) GetPk(table string) []string {
+	return e.tables.GetPk(table)
+}
 
-// type extract struct {
-// 	tables []table
-// }
+// TODO: test
+func (e extract[A]) GetColumns(table string) map[string]GoDataType {
+	columnTypes, err := e.tables.GetColumnType(table)
+	if err != nil {
+		return nil
+	}
+	columns := e.tables.GetColumnNames(table)
+	converted := make(map[string]GoDataType, len(columns))
+	for i := range columns {
+		dataType, ok := columnTypes[columns[i]]
+		if !ok {
+			return nil
+		}
+		converted[columns[i]] = convert(dataType)
+	}
+	return converted
+}
 
-// type table struct {
-// 	columns []column
-// }
+func Extract(ctx context.Context, provider Provider, schema string, source string) Extractor {
+	switch provider {
+	case Mysql:
+		return nil
+	case Postgres:
+		extract := new(extract[postgres.PostgresDataType])
+		db := postgres.NewDB(source)
+		extract.tables = postgres.InitTables(ctx, db, schema)
+		return extract
+	default:
+		return nil
+	}
+}
 
-// type column struct {
-// 	name       string
-// 	table      string
-// 	order      int
-// 	isNull     bool
-// 	dataType   string
-// 	referenced *column
-// }
+type extract[A postgres.PostgresDataType | mysql.MysqlDataType] struct {
+	tables TablesGetter[A]
+	// tableTree TableTreeGetter
+}
 
-// // 探索できるロジックとかも作る。
-// // ツリーを作成する
-// func createTableTree[A Provider](ctx context.Context, schema string, conn *sql.DB, provider A) []table {
-// 	tables, err := postgres.FetchTables(ctx, conn, schema)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	tree := make([]table, 0, len(tables))
-// 	for i := range tables {
-// 		rows, err := postgres.GetRows(ctx, conn, tables.GetTableName(i))
-// 		if err != nil {
-// 			panic(err)
-// 		}
-// 		var table table
-// 		table.columns = make([]column, 0, len(rows))
-// 		for j, row := range rows {
-// 			column := column{
-// 				name:       row.GetName(false),
-// 				table:      tables.GetTableName(i),
-// 				order:      row.GetOrder(false),
-// 				isNull:     row.GetIsNull(false),
-// 				dataType:   row.GetDataType(false),
-// 				referenced: new(column),
-// 			}
-// 			// モリモリのきがくる
-// 			referred, err := postgres.GetReferencedRow(ctx, conn, rows[j])
-// 			if err != nil {
-// 				panic(err)
-// 			}
-// 			// referred.Next()で呼び出して木の再現をしたい。
-// 			// referredを打ちこむ
-// 			// ここで木の探索を行うために、mysqlとpostgresで抽象的な操作をする必要がある。
-// 			table.columns = append(table.columns, column)
-// 		}
-// 		tree = append(tree, table)
-// 	}
+type TablesGetter[A postgres.PostgresDataType | mysql.MysqlDataType] interface {
+	GetPk(table string) []string
+	GetColumnNames(table string) []string
+	GetColumnType(table string) (map[string]A, error)
+}
 
-// 	return tree
-// }
+type TableTreeGetter interface{}
 
-// type PostgesRowGetter interface {
-// 	Get() *postgres.Referenced
-// }
-
-// type MysqlRowGetter interface {
-// 	Get() *postgres.Referenced
-// }
-
-// type Getter interface {
-// 	PostgesRowGetter | MysqlRowGetter
-// }
-
-// func RowIterator[A PostgesRowGetter | MysqlRowGetter](referred A) iter.Seq[A] {
-// 	return func(yield func(A) bool) {
-// 		rows := referred.Get()
-// 		yield(rows)
-// 	}
-// }
-
-type DataType int
+type Provider int
 
 const (
-	INTEGER DataType = iota
-	BIGINT
-	SMALLINT
-	NUMERIC
-	DECIMAL
-	REAL
-	DOUBLE
-	DOUBLEPRECISION
-	TEXT
-	VARCHAR
-	CHAR
-	DATE
-	TIME
-	TIMESTAMP
-	INTERVAL
-	BOOLEAN
-	INTEGERARRAY
-	TEXTARRAY
-	JSON
-	JSONB
-	UUID
+	Mysql Provider = iota
+	Postgres
 )
+
+type GoDataType int
+
+const (
+	Int GoDataType = iota
+	Float64
+	String
+	Bool
+)
+
+func convert[A postgres.PostgresDataType | mysql.MysqlDataType](dataType A) GoDataType {
+	switch t := any(dataType).(type) {
+	case postgres.PostgresDataType:
+		return convertPostgresToGo(t)
+	case mysql.MysqlDataType:
+		return -1
+	default:
+		return -1
+	}
+}
+
+func convertPostgresToGo(postgresType postgres.PostgresDataType) GoDataType {
+	switch postgresType {
+	case postgres.INTEGER, postgres.BIGINT, postgres.SMALLINT:
+		return Int
+	case postgres.NUMERIC, postgres.DECIMAL, postgres.REAL, postgres.DOUBLE, postgres.DOUBLEPRECISION:
+		return Float64
+	case postgres.TEXT, postgres.VARCHAR, postgres.CHAR:
+		return String
+	case postgres.BOOLEAN:
+		return Bool
+	case postgres.DATE, postgres.TIME, postgres.TIMESTAMP, postgres.INTERVAL:
+		return String
+	case postgres.INTEGERARRAY:
+		return Int
+	case postgres.TEXTARRAY:
+		return String
+	case postgres.JSON, postgres.JSONB:
+		return String
+	case postgres.UUID:
+		return String
+	}
+	return -1
+}
