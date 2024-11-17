@@ -166,7 +166,6 @@ type (
 	Tables    map[tableName]table
 )
 
-// TODO: test
 func (ts Tables) GetPk(table string) []string {
 	resp := make([]string, 0, len(ts[table].columns))
 	for _, c := range ts[table].columns {
