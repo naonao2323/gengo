@@ -3,7 +3,7 @@ package table
 import (
 	"sync"
 
-	"github.com/naonao2323/testgen/pkg/executor/common"
+	"github.com/naonao2323/testgen/pkg/common"
 	"github.com/naonao2323/testgen/pkg/extractor"
 )
 

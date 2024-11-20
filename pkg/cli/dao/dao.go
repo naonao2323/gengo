@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
+	"github.com/naonao2323/testgen/pkg/common"
 	"github.com/naonao2323/testgen/pkg/executor"
-	"github.com/naonao2323/testgen/pkg/executor/common"
 	"github.com/naonao2323/testgen/pkg/executor/output"
 	"github.com/naonao2323/testgen/pkg/executor/table"
 	"github.com/naonao2323/testgen/pkg/extractor"

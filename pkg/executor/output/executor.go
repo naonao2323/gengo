@@ -3,7 +3,7 @@ package output
 import (
 	"io"
 
-	"github.com/naonao2323/testgen/pkg/executor/common"
+	"github.com/naonao2323/testgen/pkg/common"
 	"github.com/naonao2323/testgen/pkg/template"
 )
 
@@ -15,6 +15,12 @@ type OutputExecutor interface {
 
 type outputExecutor struct {
 	template *template.Template
+}
+
+func NewOutputExecutor(template *template.Template) OutputExecutor {
+	return outputExecutor{
+		template: template,
+	}
 }
 
 func (t outputExecutor) Execute(writer io.Writer, request common.Request, table string, columns map[string]common.GoDataType, pk []string) (OutputResult, error) {
@@ -41,18 +47,4 @@ func (t outputExecutor) Execute(writer io.Writer, request common.Request, table 
 	case common.TestFixturePostgresRequest:
 	}
 	return OutputResult{}, nil
-}
-
-func NewOutputExecutor(template *template.Template) OutputExecutor {
-	return outputExecutor{
-		template: template,
-	}
-}
-
-func newTemplate() (*template.Template, error) {
-	template, err := template.NewTemplate(nil)
-	if err != nil {
-		return nil, err
-	}
-	return template, nil
 }

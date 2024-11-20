@@ -3,8 +3,8 @@ package optimizer
 import (
 	"context"
 
+	"github.com/naonao2323/testgen/pkg/common"
 	"github.com/naonao2323/testgen/pkg/executor"
-	"github.com/naonao2323/testgen/pkg/executor/common"
 	"github.com/naonao2323/testgen/pkg/extractor"
 	"github.com/naonao2323/testgen/pkg/state"
 )
