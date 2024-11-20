@@ -40,7 +40,7 @@ func (d {{.TableName }}Dao) Delete(db *sql.DB, {{ argument $.Dao }}) (int, error
 	return m, nil
 }
 
-func (d {{.TableName }}Dao) Get(db *sql.DB, {{ argument $.Dao }}) ([]{{.TableName}}, error) {
+func (d {{.TableName }}Dao) Get(db *sql.DB, {{ argument $.Dao }}) (*{{.TableName}}, error) {
 	m, err := db.QueryRow("SELECT {{ mapLiner $.Dao }} FROM {{.TableName}} WHERE {{ where $.Pk $.ToInsert }}")
 	if err != nil {
 		return nil, err
@@ -52,6 +52,6 @@ func (d {{.TableName }}Dao) Get(db *sql.DB, {{ argument $.Dao }}) ([]{{.TableNam
 	if err := m.Scan({{ scan $.Dao "resp" }}); err != nil {
 		return nil, err
 	}
-	return m, nil
+	return &resp, nil
 }
 `
