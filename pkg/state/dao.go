@@ -3,6 +3,7 @@ package state
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/naonao2323/testgen/pkg/executor"
@@ -77,6 +78,7 @@ func (s *daoStateMachine) Run(ctx context.Context, events chan DaoEvent) error {
 			Request: request,
 			Props:   props,
 		}
+		fmt.Println("succccccccceeeeeessssss", state, mState)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -99,16 +101,16 @@ func (s *daoStateMachine) Run(ctx context.Context, events chan DaoEvent) error {
 				return err
 			}
 		case DaoStateExecute:
-			if state.TableResult != nil {
+			if state.TableResult == nil {
 				return nil
 			}
 			target := *state.TableResult
 			provider, output := convert(state.Request)
-			if provider != -1 || output != -1 {
+			if provider == -1 || output == -1 {
 				return errors.New("unknown request")
 			}
 			// テストしにくいので、writerをラップして、さまざまな出力先に対応できるようにする。
-			writer, _ := os.Create("tmp")
+			writer, _ := os.Create("./tmp")
 			result, err := s.outputExecutor.Execute(writer, output, provider, target.Table, target.Clumns, target.Pk)
 			if err != nil {
 				return err

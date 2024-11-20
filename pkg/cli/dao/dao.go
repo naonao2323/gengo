@@ -41,7 +41,7 @@ func (d *dao) run(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 	events := d.optimizer.Optimize(ctx, 10, state.DaoPostgresRequest)
 	ctx, cancel := util.WithCondition(ctx, len(events))
-	errors := make(chan error, 10)
+	errors := make(chan error, len(events))
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)

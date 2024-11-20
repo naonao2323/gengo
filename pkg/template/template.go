@@ -64,33 +64,36 @@ const (
 type FuncMapKey = string
 
 const (
-	ListLiner FuncMapKey = FuncMapKey("ListLiner")
+	ListLiner FuncMapKey = FuncMapKey("listLiner")
 	MapLiner             = FuncMapKey("mapLiner")
 	Where                = FuncMapKey("where")
 	BackQuote            = FuncMapKey("backQuote")
+	PkType               = FuncMapKey("pkType")
+	Argument             = FuncMapKey("argument")
+	Scan                 = FuncMapKey("scan")
 )
 
 func NewTemplate(optionFuncMap template.FuncMap) (*Template, error) {
-	tmp, err := template.New(PostgresDao).Parse(postgres.DaoPostgresTemplate)
-	if err != nil {
-		return nil, err
-	}
-	_, err = tmp.New(PostgresTestFixture).Parse(postgres.DaoPostgresTemplate)
-	if err != nil {
-		return nil, err
-	}
-	_, err = tmp.New(PostgresTestContainer).Parse(postgres.DaoPostgresTemplate)
-	if err != nil {
-		return nil, err
-	}
 	funcMap := newFuncMap()
 	for k, v := range optionFuncMap {
 		_, ok := funcMap[k]
-		if !ok {
+		if ok {
 			// ログ
 			continue
 		}
 		funcMap[k] = v
+	}
+	tmp, err := template.New(PostgresDao).Funcs(funcMap).Parse(postgres.DaoPostgresTemplate)
+	if err != nil {
+		return nil, err
+	}
+	_, err = tmp.New(PostgresTestFixture).Funcs(funcMap).Parse(postgres.DaoPostgresTemplate)
+	if err != nil {
+		return nil, err
+	}
+	_, err = tmp.New(PostgresTestContainer).Funcs(funcMap).Parse(postgres.DaoPostgresTemplate)
+	if err != nil {
+		return nil, err
 	}
 	templates := Template{
 		template: tmp,
@@ -146,10 +149,34 @@ func newFuncMap() template.FuncMap {
 			return resp.String()
 		},
 		BackQuote: func() string { return "`" },
+		PkType: func(pk Column, dao map[Column]DataType) string {
+			v, ok := dao[pk]
+			if !ok {
+				panic("unexpected columns")
+			}
+			return v
+		},
+		Argument: func(dao Dao) string {
+			argument := make([]string, 0)
+			for k, v := range dao {
+				argument = append(argument, fmt.Sprintf("%v %v", k, v))
+			}
+			return liner(argument)
+		},
+		Scan: func(dao Dao, target string) string {
+			scan := make([]string, 0)
+			for k := range dao {
+				scan = append(scan, fmt.Sprintf("&%v.%v", target, k))
+			}
+			return liner(scan)
+		},
 	}
 }
 
 func (t *Template) Execute(templateType DefaultTemplateType, writer io.Writer, data DaoPostgres) error {
+	if t == nil {
+		return nil
+	}
 	err := t.template.ExecuteTemplate(writer, templateType, data)
 	if err != nil {
 		return err
