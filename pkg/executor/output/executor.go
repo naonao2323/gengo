@@ -13,7 +13,9 @@ type OutputExecutor interface {
 	Execute(writer io.Writer, request common.Request, table string, columns map[string]common.GoDataType, pk []string) (OutputResult, error)
 }
 
-type outputExecutor struct{}
+type outputExecutor struct {
+	template *template.Template
+}
 
 func (t outputExecutor) Execute(writer io.Writer, request common.Request, table string, columns map[string]common.GoDataType, pk []string) (OutputResult, error) {
 	newData := func() template.DaoPostgres {
@@ -29,11 +31,7 @@ func (t outputExecutor) Execute(writer io.Writer, request common.Request, table 
 	}
 	switch request {
 	case common.DaoPostgresRequest:
-		tmp, err := newTemplate()
-		if err != nil {
-			return OutputResult{}, err
-		}
-		err = tmp.Execute(template.PostgresDao, writer, newData())
+		err := t.template.Execute(template.PostgresDao, writer, newData())
 		if err != nil {
 			return OutputResult{}, err
 		}
@@ -45,8 +43,10 @@ func (t outputExecutor) Execute(writer io.Writer, request common.Request, table 
 	return OutputResult{}, nil
 }
 
-func NewOutputExecutor() OutputExecutor {
-	return outputExecutor{}
+func NewOutputExecutor(template *template.Template) OutputExecutor {
+	return outputExecutor{
+		template: template,
+	}
 }
 
 func newTemplate() (*template.Template, error) {

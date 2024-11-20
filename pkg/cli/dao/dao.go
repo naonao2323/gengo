@@ -11,6 +11,7 @@ import (
 	"github.com/naonao2323/testgen/pkg/extractor"
 	"github.com/naonao2323/testgen/pkg/optimizer"
 	"github.com/naonao2323/testgen/pkg/state"
+	"github.com/naonao2323/testgen/pkg/template"
 	"github.com/naonao2323/testgen/pkg/util"
 	"github.com/spf13/cobra"
 )
@@ -43,6 +44,10 @@ func (d *dao) run(cmd *cobra.Command, args []string) error {
 	events := d.optimizer.Optimize(ctx, 10, common.DaoPostgresRequest)
 	ctx, cancel := util.WithCondition(ctx, len(events))
 	errors := make(chan error, len(events))
+	template, err := template.NewTemplate(nil)
+	if err != nil {
+		return err
+	}
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
@@ -52,7 +57,7 @@ func (d *dao) run(cmd *cobra.Command, args []string) error {
 				cancel,
 				executor.NewTreeExecutor(),
 				table.NewTableExecutor(d.extractor),
-				output.NewOutputExecutor(),
+				output.NewOutputExecutor(template),
 			)
 			if err := state.Run(ctx, events); err != nil {
 				errors <- err
