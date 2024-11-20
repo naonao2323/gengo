@@ -7,30 +7,15 @@ import (
 	"github.com/naonao2323/testgen/pkg/template"
 )
 
-type Provider int
-
-const (
-	Mysql Provider = iota
-	Postgres
-)
-
-type Output int
-
-const (
-	Dao Output = iota
-	Fixture
-	Container
-)
-
 type OutputResult struct{}
 
 type OutputExecutor interface {
-	Execute(writer io.Writer, output Output, provider Provider, table string, columns map[string]common.GoDataType, pk []string) (OutputResult, error)
+	Execute(writer io.Writer, request common.Request, table string, columns map[string]common.GoDataType, pk []string) (OutputResult, error)
 }
 
 type outputExecutor struct{}
 
-func (t outputExecutor) Execute(writer io.Writer, output Output, provider Provider, table string, columns map[string]common.GoDataType, pk []string) (OutputResult, error) {
+func (t outputExecutor) Execute(writer io.Writer, request common.Request, table string, columns map[string]common.GoDataType, pk []string) (OutputResult, error) {
 	newData := func() template.DaoPostgres {
 		data := make(map[template.Column]template.DataType, len(columns))
 		for clumn, dataType := range columns {
@@ -42,25 +27,20 @@ func (t outputExecutor) Execute(writer io.Writer, output Output, provider Provid
 			Dao:       data,
 		}
 	}
-
-	switch provider {
-	case Postgres:
-		switch output {
-		case Dao:
-			tmp, err := newTemplate()
-			if err != nil {
-				return OutputResult{}, err
-			}
-			err = tmp.Execute(template.PostgresDao, writer, newData())
-			if err != nil {
-				return OutputResult{}, err
-			}
-			return OutputResult{}, nil
-		case Fixture:
-			return OutputResult{}, nil
-		case Container:
-			return OutputResult{}, nil
+	switch request {
+	case common.DaoPostgresRequest:
+		tmp, err := newTemplate()
+		if err != nil {
+			return OutputResult{}, err
 		}
+		err = tmp.Execute(template.PostgresDao, writer, newData())
+		if err != nil {
+			return OutputResult{}, err
+		}
+		return OutputResult{}, nil
+	case common.FrameworkPostgresRequest:
+	case common.TestContainerPostgresRequest:
+	case common.TestFixturePostgresRequest:
 	}
 	return OutputResult{}, nil
 }

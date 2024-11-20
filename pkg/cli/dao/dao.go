@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/naonao2323/testgen/pkg/executor"
+	"github.com/naonao2323/testgen/pkg/executor/common"
 	"github.com/naonao2323/testgen/pkg/executor/output"
 	"github.com/naonao2323/testgen/pkg/executor/table"
 	"github.com/naonao2323/testgen/pkg/extractor"
@@ -39,7 +40,7 @@ func NewCommand() *cobra.Command {
 
 func (d *dao) run(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	events := d.optimizer.Optimize(ctx, 10, state.DaoPostgresRequest)
+	events := d.optimizer.Optimize(ctx, 10, common.DaoPostgresRequest)
 	ctx, cancel := util.WithCondition(ctx, len(events))
 	errors := make(chan error, len(events))
 	var wg sync.WaitGroup

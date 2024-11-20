@@ -3,10 +3,10 @@ package state
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 
 	"github.com/naonao2323/testgen/pkg/executor"
+	"github.com/naonao2323/testgen/pkg/executor/common"
 	"github.com/naonao2323/testgen/pkg/executor/output"
 	"github.com/naonao2323/testgen/pkg/executor/table"
 )
@@ -30,15 +30,6 @@ const (
 	DaoStateDone
 )
 
-type Request int
-
-const (
-	DaoPostgresRequest Request = iota
-	TestContainerPostgresRequest
-	TestFixturePostgresRequest
-	FrameworkPostgresRequest
-)
-
 type (
 	Props struct {
 		*executor.StartResult
@@ -48,7 +39,7 @@ type (
 	}
 	DaoEvent struct {
 		State   DaoState
-		Request Request
+		Request common.Request
 		Props
 	}
 )
@@ -68,7 +59,7 @@ func NewDaoState(
 }
 
 func (s *daoStateMachine) Run(ctx context.Context, events chan DaoEvent) error {
-	spawn := func(state DaoState, request Request, props Props, events chan<- DaoEvent) error {
+	spawn := func(state DaoState, request common.Request, props Props, events chan<- DaoEvent) error {
 		mState := s.mutate(state)
 		if mState == -1 {
 			return errors.New("unknown state")
@@ -78,7 +69,6 @@ func (s *daoStateMachine) Run(ctx context.Context, events chan DaoEvent) error {
 			Request: request,
 			Props:   props,
 		}
-		fmt.Println("succccccccceeeeeessssss", state, mState)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -105,13 +95,9 @@ func (s *daoStateMachine) Run(ctx context.Context, events chan DaoEvent) error {
 				return nil
 			}
 			target := *state.TableResult
-			provider, output := convert(state.Request)
-			if provider == -1 || output == -1 {
-				return errors.New("unknown request")
-			}
 			// テストしにくいので、writerをラップして、さまざまな出力先に対応できるようにする。
 			writer, _ := os.Create("./tmp")
-			result, err := s.outputExecutor.Execute(writer, output, provider, target.Table, target.Clumns, target.Pk)
+			result, err := s.outputExecutor.Execute(writer, state.Request, target.Table, target.Clumns, target.Pk)
 			if err != nil {
 				return err
 			}
@@ -135,7 +121,6 @@ func (s *daoStateMachine) Run(ctx context.Context, events chan DaoEvent) error {
 			state := s.trigger(e.State)
 			e.State = state
 			if err := transition(e); err != nil {
-				println("transaition.........", err.Error())
 				return err
 			}
 		}
@@ -163,18 +148,5 @@ func (s daoStateMachine) mutate(state DaoState) DaoState {
 		return DaoStateDone
 	default:
 		return -1
-	}
-}
-
-func convert(request Request) (output.Provider, output.Output) {
-	switch request {
-	case DaoPostgresRequest:
-		return output.Postgres, output.Dao
-	case TestFixturePostgresRequest:
-		return output.Postgres, output.Fixture
-	case TestContainerPostgresRequest:
-		return output.Postgres, output.Container
-	default:
-		return -1, -1
 	}
 }
