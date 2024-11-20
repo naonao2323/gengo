@@ -1,7 +1,5 @@
 package common
 
-import "github.com/naonao2323/testgen/pkg/extractor"
-
 type GoDataType int
 
 const (
@@ -11,17 +9,17 @@ const (
 	Bool
 )
 
-func Convert(goDataType extractor.GoDataType) GoDataType {
+func Convert(goDataType GoDataType) string {
 	switch goDataType {
-	case extractor.Int:
-		return Int
-	case extractor.Float64:
-		return Float64
-	case extractor.String:
-		return String
-	case extractor.Bool:
-		return Bool
+	case Int:
+		return "int"
+	case Float64:
+		return "float64"
+	case String:
+		return "string"
+	case Bool:
+		return "bool"
 	default:
-		return -1
+		return ""
 	}
 }

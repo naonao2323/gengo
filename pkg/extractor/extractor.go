@@ -3,13 +3,14 @@ package extractor
 import (
 	"context"
 
+	"github.com/naonao2323/testgen/pkg/common"
 	"github.com/naonao2323/testgen/pkg/extractor/mysql"
 	"github.com/naonao2323/testgen/pkg/extractor/postgres"
 )
 
 type Extractor interface {
 	GetPk(table string) []string
-	GetColumns(table string) map[string]GoDataType
+	GetColumns(table string) map[string]common.GoDataType
 	ListTableNames() []string
 }
 
@@ -21,13 +22,13 @@ func (e extract[A]) GetPk(table string) []string {
 	return e.tables.GetPk(table)
 }
 
-func (e extract[A]) GetColumns(table string) map[string]GoDataType {
+func (e extract[A]) GetColumns(table string) map[string]common.GoDataType {
 	columnTypes, err := e.tables.GetColumnType(table)
 	if err != nil {
 		return nil
 	}
 	columns := e.tables.GetColumnNames(table)
-	converted := make(map[string]GoDataType, len(columns))
+	converted := make(map[string]common.GoDataType, len(columns))
 	for i := range columns {
 		dataType, ok := columnTypes[columns[i]]
 		if !ok {
@@ -73,16 +74,7 @@ const (
 	Postgres
 )
 
-type GoDataType int
-
-const (
-	Int GoDataType = iota
-	Float64
-	String
-	Bool
-)
-
-func convert[A postgres.PostgresDataType | mysql.MysqlDataType](dataType A) GoDataType {
+func convert[A postgres.PostgresDataType | mysql.MysqlDataType](dataType A) common.GoDataType {
 	switch t := any(dataType).(type) {
 	case postgres.PostgresDataType:
 		return convertPostgresToGo(t)
@@ -93,26 +85,26 @@ func convert[A postgres.PostgresDataType | mysql.MysqlDataType](dataType A) GoDa
 	}
 }
 
-func convertPostgresToGo(postgresType postgres.PostgresDataType) GoDataType {
+func convertPostgresToGo(postgresType postgres.PostgresDataType) common.GoDataType {
 	switch postgresType {
 	case postgres.INTEGER, postgres.BIGINT, postgres.SMALLINT:
-		return Int
+		return common.Int
 	case postgres.NUMERIC, postgres.DECIMAL, postgres.REAL, postgres.DOUBLE, postgres.DOUBLEPRECISION:
-		return Float64
+		return common.Float64
 	case postgres.TEXT, postgres.VARCHAR, postgres.CHAR:
-		return String
+		return common.String
 	case postgres.BOOLEAN:
-		return Bool
+		return common.Bool
 	case postgres.DATE, postgres.TIME, postgres.TIMESTAMP, postgres.INTERVAL:
-		return String
+		return common.String
 	case postgres.INTEGERARRAY:
-		return Int
+		return common.Int
 	case postgres.TEXTARRAY:
-		return String
+		return common.String
 	case postgres.JSON, postgres.JSONB:
-		return String
+		return common.String
 	case postgres.UUID:
-		return String
+		return common.String
 	}
 	return -1
 }

@@ -27,7 +27,12 @@ func (t outputExecutor) Execute(writer io.Writer, request common.Request, table 
 	newData := func() template.DaoPostgres {
 		data := make(map[template.Column]template.DataType, len(columns))
 		for clumn, dataType := range columns {
-			data[clumn] = template.Convert(template.GoDataType(dataType))
+			converted := common.Convert(dataType)
+			if converted == "-1" {
+				// TODO: error handling
+				continue
+			}
+			data[clumn] = common.Convert(dataType)
 		}
 		return template.DaoPostgres{
 			TableName: table,

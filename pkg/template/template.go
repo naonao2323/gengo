@@ -9,31 +9,6 @@ import (
 	"github.com/naonao2323/testgen/pkg/template/postgres"
 )
 
-// executorとtemplateの二重管理はまずいので、どこに置くか考える。
-type GoDataType int
-
-const (
-	Int GoDataType = iota
-	Float64
-	String
-	Bool
-)
-
-func Convert(dataType GoDataType) string {
-	switch dataType {
-	case Int:
-		return "int"
-	case Float64:
-		return "float64"
-	case String:
-		return "string"
-	case Bool:
-		return "bool"
-	default:
-		return ""
-	}
-}
-
 type (
 	Column   = string
 	Value    = string

@@ -36,12 +36,7 @@ func (t tableExecutor) Execute(table string) (TableResult, error) {
 		defer wg.Done()
 		resp := t.tableGetter.GetColumns(table)
 		for k, v := range resp {
-			converted := common.Convert(v)
-			if converted == -1 {
-				// log
-				continue
-			}
-			columns[k] = converted
+			columns[k] = v
 		}
 	}()
 	go func() {
