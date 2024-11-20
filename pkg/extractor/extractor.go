@@ -10,6 +10,11 @@ import (
 type Extractor interface {
 	GetPk(table string) []string
 	GetColumns(table string) map[string]GoDataType
+	ListTableNames() []string
+}
+
+func (e extract[A]) ListTableNames() []string {
+	return e.tables.ListTableNames()
 }
 
 func (e extract[A]) GetPk(table string) []string {
@@ -56,6 +61,7 @@ type TablesGetter[A postgres.PostgresDataType | mysql.MysqlDataType] interface {
 	GetPk(table string) []string
 	GetColumnNames(table string) []string
 	GetColumnType(table string) (map[string]A, error)
+	ListTableNames() []string
 }
 
 type TableTreeGetter interface{}

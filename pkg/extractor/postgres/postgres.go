@@ -200,6 +200,14 @@ func (ts Tables) GetColumnType(table string) (map[string]PostgresDataType, error
 	return dataTypes, nil
 }
 
+func (ts Tables) ListTableNames() []string {
+	names := make([]string, 0, len(ts))
+	for k := range ts {
+		names = append(names, k)
+	}
+	return names
+}
+
 func InitTables(ctx context.Context, db *sql.DB, schema string) Tables {
 	tables := make(Tables)
 	tableNames, err := listTableNames(ctx, db, schema)
@@ -209,7 +217,7 @@ func InitTables(ctx context.Context, db *sql.DB, schema string) Tables {
 	for i := range tableNames {
 		table, err := fetchTable(ctx, db, tableNames[i])
 		if err != nil {
-			panic(err)
+			panic(err.Error)
 		}
 		if table == nil {
 			panic("no table")
@@ -326,29 +334,31 @@ const (
 )
 
 func convert(dataType string) (PostgresDataType, error) {
+	fmt.Printf("%v\n", dataType)
 	dataTypeMap := map[string]PostgresDataType{
-		"integer":           INTEGER,
-		"bigint":            BIGINT,
-		"smallint":          SMALLINT,
-		"numeric":           NUMERIC,
-		"decimal":           DECIMAL,
-		"real":              REAL,
-		"double":            DOUBLE,
-		"double precision":  DOUBLEPRECISION,
-		"text":              TEXT,
-		"varchar":           VARCHAR,
-		"character varying": VARCHAR,
-		"char":              CHAR,
-		"date":              DATE,
-		"time":              TIME,
-		"timestamp":         TIMESTAMP,
-		"interval":          INTERVAL,
-		"boolean":           BOOLEAN,
-		"integer[]":         INTEGERARRAY,
-		"text[]":            TEXTARRAY,
-		"json":              JSON,
-		"jsonb":             JSONB,
-		"uuid":              UUID,
+		"integer":                  INTEGER,
+		"bigint":                   BIGINT,
+		"smallint":                 SMALLINT,
+		"numeric":                  NUMERIC,
+		"decimal":                  DECIMAL,
+		"real":                     REAL,
+		"double":                   DOUBLE,
+		"double precision":         DOUBLEPRECISION,
+		"text":                     TEXT,
+		"varchar":                  VARCHAR,
+		"character varying":        VARCHAR,
+		"char":                     CHAR,
+		"date":                     DATE,
+		"time":                     TIME,
+		"timestamp":                TIMESTAMP,
+		"interval":                 INTERVAL,
+		"boolean":                  BOOLEAN,
+		"integer[]":                INTEGERARRAY,
+		"text[]":                   TEXTARRAY,
+		"json":                     JSON,
+		"jsonb":                    JSONB,
+		"uuid":                     UUID,
+		"timestamp with time zone": TIMESTAMP,
 	}
 	normalized := strings.ToLower(dataType)
 	if postgresType, exists := dataTypeMap[normalized]; exists {

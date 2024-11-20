@@ -28,6 +28,10 @@ func (ft fakeTableGetter[A]) GetColumnType(table string) (map[string]A, error) {
 	return ft.columnType, ft.err
 }
 
+func (ft fakeTableGetter[A]) ListTableNames() []string {
+	return []string{"test"}
+}
+
 func Test_Exractor_GetColumn(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
