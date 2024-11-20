@@ -3,7 +3,6 @@ package state
 import (
 	"context"
 	"errors"
-	"os"
 
 	"github.com/naonao2323/testgen/pkg/common"
 	"github.com/naonao2323/testgen/pkg/executor"
@@ -95,13 +94,11 @@ func (s *daoStateMachine) Run(ctx context.Context, events chan DaoEvent) error {
 				return nil
 			}
 			target := *state.TableResult
-			// テストしにくいので、writerをラップして、さまざまな出力先に対応できるようにする。
-			writer, _ := os.Create("./tmp")
-			result, err := s.outputExecutor.Execute(writer, state.Request, target.Table, target.Clumns, target.Pk)
+			result, err := s.outputExecutor.Execute(state.Request, target.Table, target.Clumns, target.Pk)
 			if err != nil {
 				return err
 			}
-			if err := spawn(state.State, state.Request, Props{OutputResult: &result}, events); err != nil {
+			if err := spawn(state.State, state.Request, Props{OutputResult: result}, events); err != nil {
 				return err
 			}
 		case DaoStateDone:
