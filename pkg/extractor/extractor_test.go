@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/naonao2323/testgen/pkg/common"
 	"github.com/naonao2323/testgen/pkg/extractor/mysql"
 	"github.com/naonao2323/testgen/pkg/extractor/postgres"
 	"github.com/stretchr/testify/assert"
@@ -28,13 +29,17 @@ func (ft fakeTableGetter[A]) GetColumnType(table string) (map[string]A, error) {
 	return ft.columnType, ft.err
 }
 
+func (ft fakeTableGetter[A]) ListTableNames() []string {
+	return []string{"test"}
+}
+
 func Test_Exractor_GetColumn(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name    string
 		table   string
 		extract func() extract[postgres.PostgresDataType]
-		expect  map[string]GoDataType
+		expect  map[string]common.GoDataType
 	}{
 		{
 			name:  "fail to fetch get column type",
@@ -69,11 +74,11 @@ func Test_Exractor_GetColumn(t *testing.T) {
 					},
 				}
 			},
-			expect: map[string]GoDataType{
-				"test":  Int,
-				"test2": Float64,
-				"test3": String,
-				"test4": Bool,
+			expect: map[string]common.GoDataType{
+				"test":  common.Int,
+				"test2": common.Float64,
+				"test3": common.String,
+				"test4": common.Bool,
 			},
 		},
 	}

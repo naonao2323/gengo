@@ -1,18 +1,21 @@
 package executor
 
-type TemplateResult struct{}
-
-type TableResult struct{}
+type StartResult struct {
+	Table string
+}
 
 type TreeResult struct{}
 
-type OutputResult struct{}
-
-type ExecuteStrategy interface {
-	TemplateResult | TableResult | TreeResult | OutputResult
+type TreeExecutor interface {
+	Execute() (TreeResult, error)
 }
 
-// Executorではなく、app、serviceが適切
-type Executor[A ExecuteStrategy] interface {
-	Execute() (A, error)
+type treeExecutor struct{}
+
+func (t treeExecutor) Execute() (TreeResult, error) {
+	return TreeResult{}, nil
+}
+
+func NewTreeExecutor() TreeExecutor {
+	return treeExecutor{}
 }
