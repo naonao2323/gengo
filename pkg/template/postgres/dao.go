@@ -21,7 +21,7 @@ func (d {{.TableName }}Dao) Create(db *sql.DB, target {{ .TableName }}) (int, er
 	if err != nil {
 		return 0, err
 	}
-	return m
+	return m, nil
 }
 
 func (d {{.TableName }}Dao) Update(db *sql.DB, {{ range $pk := .Pk}}{{ $pk }} {{ pkType $pk $.Dao }},{{- end}} target {{ .TableName }}) (int, error) {
@@ -29,7 +29,7 @@ func (d {{.TableName }}Dao) Update(db *sql.DB, {{ range $pk := .Pk}}{{ $pk }} {{
 	if err != nil {
 		return 0, err
 	}
-	return m
+	return m, nil
 }
 
 func (d {{.TableName }}Dao) Delete(db *sql.DB, {{ argument $.Dao }}) (int, error) {
@@ -37,7 +37,7 @@ func (d {{.TableName }}Dao) Delete(db *sql.DB, {{ argument $.Dao }}) (int, error
 	if err != nil {
 		return 0, err
 	}
-	return m
+	return m, nil
 }
 
 func (d {{.TableName }}Dao) Get(db *sql.DB, {{ argument $.Dao }}) ([]{{.TableName}}, error) {
@@ -49,7 +49,7 @@ func (d {{.TableName }}Dao) Get(db *sql.DB, {{ argument $.Dao }}) ([]{{.TableNam
 		return nil, err
 	}
 	var resp {{.TableName}}
-	if err := m.Scan({{ scan $.Dao $.TableName }}); err != nil {
+	if err := m.Scan({{ scan $.Dao "resp" }}); err != nil {
 		return nil, err
 	}
 	return m, nil

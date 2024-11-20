@@ -2,9 +2,9 @@ package template
 
 import (
 	"fmt"
-	"html/template"
 	"io"
 	"strings"
+	"text/template"
 
 	"github.com/naonao2323/testgen/pkg/template/postgres"
 )
@@ -143,6 +143,7 @@ func newFuncMap() template.FuncMap {
 			for k := range dao {
 				scan = append(scan, fmt.Sprintf("&%v.%v", target, k))
 			}
+			fmt.Println(liner(scan))
 			return liner(scan)
 		},
 	}

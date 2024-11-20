@@ -71,7 +71,7 @@ const (
 func newWriter(table string, writer writer) (io.Writer, error) {
 	switch writer {
 	case file:
-		file, err := os.Create(fmt.Sprintf("%v.go", table))
+		file, err := os.Create(fmt.Sprintf("../../test/%v.go", table))
 		if err != nil {
 			return nil, err
 		}
