@@ -1,5 +1,6 @@
 package postgres
 
+// ここprivateにして、呼び出す時に必要なデータやfuncMapがあるかチェックする。
 const DaoPostgresTemplate = `package dao
 
 import (
@@ -16,32 +17,44 @@ type {{ .TableName }} struct {
 
 type {{ .TableName }}Dao struct {}
 
-func (d {{.TableName }}Dao) Create(db *sql.DB, target {{ .TableName }}) (int, error) {
-	m, err := db.Exec({{ backQuote }}INSERT INTO {{ .TableName }} ({{ listLiner .Pk }}) VALUES ({{ mapLiner .ToInsert }}){{ backQuote }})
+func (d {{.TableName }}Dao) Create(db *sql.DB, target {{ .TableName }}) (int64, error) {
+	m, err := db.Exec({{ backQuote }}{{ insert $.TableName $.Dao }}{{ backQuote }}, {{- withTarget "target" $.Dao }})
 	if err != nil {
 		return 0, err
 	}
-	return m, nil
-}
-
-func (d {{.TableName }}Dao) Update(db *sql.DB, {{ range $pk := .Pk}}{{ $pk }} {{ pkType $pk $.Dao }},{{- end}} target {{ .TableName }}) (int, error) {
-	m, err := db.Exec("UPDATE {{.TableName}} SET {{- range $key, $value := .ToInsert }} {{ $key }} = {{ $value }}{{- end}} WHERE {{ where $.Pk $.ToInsert }}")
+	c, err := m.RowsAffected()
 	if err != nil {
 		return 0, err
 	}
-	return m, nil
+	return c, nil
 }
 
-func (d {{.TableName }}Dao) Delete(db *sql.DB, {{ argument $.Dao }}) (int, error) {
-	m, err := db.Exec("DELETE FROM {{.TableName}} WHERE {{ where $.Pk $.ToInsert }}")
+func (d {{.TableName }}Dao) Update(db *sql.DB, {{ range $pk := .Pk}}{{ $pk }} {{ pkType $pk $.Dao }},{{- end}} target {{ .TableName }}) (int64, error) {
+	m, err := db.Exec({{ backQuote }}{{ update $.TableName $.Dao $.Pk }}{{ backQuote }}, {{ withPk "target" $.Dao $.Pk}})
 	if err != nil {
 		return 0, err
 	}
-	return m, nil
+	c, err := m.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return c, nil
 }
 
-func (d {{.TableName }}Dao) Get(db *sql.DB, {{ argument $.Dao }}) (*{{.TableName}}, error) {
-	m, err := db.QueryRow("SELECT {{ mapLiner $.Dao }} FROM {{.TableName}} WHERE {{ where $.Pk $.ToInsert }}")
+func (d {{.TableName }}Dao) Delete(db *sql.DB, {{ argumentPk $.Pk $.Dao }}) (int64, error) {
+	m, err := db.Exec({{ backQuote }}{{ delete $.TableName $.Pk }}{{ backQuote }}, {{ withTmp $.Pk }})
+	if err != nil {
+		return 0, err
+	}
+	c, err := m.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return c, nil
+}
+
+func (d {{.TableName }}Dao) Get(db *sql.DB, {{ argumentPk $.Pk $.Dao }}) (*{{.TableName}}, error) {
+	m, err := db.QueryRow("SELECT {{ mapLiner $.Dao }} FROM {{.TableName}} WHERE {{ where $.Pk $.Dao }}")
 	if err != nil {
 		return nil, err
 	}

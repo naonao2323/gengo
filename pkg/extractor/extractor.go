@@ -28,7 +28,7 @@ func (e extract[A]) GetColumns(table string) map[string]common.GoDataType {
 		return nil
 	}
 	columns := e.tables.GetColumnNames(table)
-	converted := make(map[string]common.GoDataType, len(columns))
+	converted := make(map[string]common.GoDataType)
 	for i := range columns {
 		dataType, ok := columnTypes[columns[i]]
 		if !ok {
