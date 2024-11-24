@@ -54,7 +54,7 @@ func (d {{.TableName }}Dao) Delete(db *sql.DB, {{ argumentPk $.Pk $.Dao }}) (int
 }
 
 func (d {{.TableName }}Dao) Get(db *sql.DB, {{ argumentPk $.Pk $.Dao }}) (*{{.TableName}}, error) {
-	m := db.QueryRow("SELECT {{ listLiner $.Columns }} FROM {{.TableName}} WHERE {{ where $.Pk $.Dao }}")
+	m := db.QueryRow("SELECT {{ listLiner $.Columns }} FROM {{.TableName}} WHERE {{ where $.Pk $.Dao }}", {{ listLiner $.Pk }})
 	if err := m.Err(); err != nil {
 		return nil, err
 	}
