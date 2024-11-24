@@ -19,9 +19,7 @@ type (
 		TableName string
 		Pk        []Column
 		Dao       Dao
-		ToInsert  map[Column]Value
-		ToDelete  []string
-		ToUpdate  map[Column]Value
+		Columns   []Column
 	}
 )
 
@@ -156,12 +154,11 @@ func newFuncMap() template.FuncMap {
 			}
 			return builder.String()
 		},
-		Scan: func(dao Dao, target string) string {
-			scan := make([]string, 0)
-			for k := range dao {
-				scan = append(scan, fmt.Sprintf("&%v.%v", target, k))
+		Scan: func(columns []string, target string) string {
+			scan := make([]string, 0, len(columns))
+			for i := range columns {
+				scan = append(scan, fmt.Sprintf("&%v.%v", target, columns[i]))
 			}
-			fmt.Println(liner(scan))
 			return liner(scan)
 		},
 		Insert: func(table string, dao Dao) string {
@@ -290,7 +287,7 @@ func newFuncMap() template.FuncMap {
 }
 
 func columns(dao Dao) []string {
-	columns := make([]string, 0, 0)
+	columns := make([]string, 0, len(dao))
 	for key := range dao {
 		columns = append(columns, key)
 	}

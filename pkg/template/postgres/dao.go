@@ -54,15 +54,12 @@ func (d {{.TableName }}Dao) Delete(db *sql.DB, {{ argumentPk $.Pk $.Dao }}) (int
 }
 
 func (d {{.TableName }}Dao) Get(db *sql.DB, {{ argumentPk $.Pk $.Dao }}) (*{{.TableName}}, error) {
-	m, err := db.QueryRow("SELECT {{ mapLiner $.Dao }} FROM {{.TableName}} WHERE {{ where $.Pk $.Dao }}")
-	if err != nil {
-		return nil, err
-	}
+	m := db.QueryRow("SELECT {{ listLiner $.Columns }} FROM {{.TableName}} WHERE {{ where $.Pk $.Dao }}")
 	if err := m.Err(); err != nil {
 		return nil, err
 	}
 	var resp {{.TableName}}
-	if err := m.Scan({{ scan $.Dao "resp" }}); err != nil {
+	if err := m.Scan({{ scan $.Columns "resp" }}); err != nil {
 		return nil, err
 	}
 	return &resp, nil

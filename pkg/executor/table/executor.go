@@ -29,7 +29,7 @@ func NewTableExecutor(tableGetter extractor.Extractor) TableExecutor {
 
 func (t tableExecutor) Execute(table string) (TableResult, error) {
 	columns := make(map[string]common.GoDataType)
-	pk := make([]string, 0, 0)
+	pk := make([]string, 0, 2)
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
