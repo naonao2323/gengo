@@ -18,7 +18,7 @@ type {{ .TableName }} struct {
 type {{ .TableName }}Dao struct {}
 
 func (d {{.TableName }}Dao) Create(db *sql.DB, target {{ .TableName }}) (int64, error) {
-	m, err := db.Exec({{ backQuote }}{{ insert $.TableName $.Dao }}{{ backQuote }}, {{- withTarget "target" $.Dao }})
+	m, err := db.Exec({{ backQuote }}{{ insert $.TableName $.Columns }}{{ backQuote }}, {{- withTarget "target" $.Columns }})
 	if err != nil {
 		return 0, err
 	}
@@ -30,7 +30,7 @@ func (d {{.TableName }}Dao) Create(db *sql.DB, target {{ .TableName }}) (int64, 
 }
 
 func (d {{.TableName }}Dao) Update(db *sql.DB, {{ range $pk := .Pk}}{{ $pk }} {{ pkType $pk $.Dao }},{{- end}} target {{ .TableName }}) (int64, error) {
-	m, err := db.Exec({{ backQuote }}{{ update $.TableName $.Dao $.Pk }}{{ backQuote }}, {{ withPk "target" $.Dao $.Pk}})
+	m, err := db.Exec({{ backQuote }}{{ update $.TableName $.Columns $.Pk }}{{ backQuote }}, {{ withPk "target" $.Dao $.Pk}})
 	if err != nil {
 		return 0, err
 	}

@@ -27,34 +27,6 @@ func NewOutputExecutor(template *template.Template) OutputExecutor {
 	}
 }
 
-func columnsKey(columns map[string]common.GoDataType) []string {
-	keys := make([]string, 0, len(columns))
-	for key := range columns {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-func newData(table string, columns map[string]common.GoDataType, pk []string) template.DaoPostgres {
-	data := make(map[template.Column]template.DataType)
-
-	for clumn, dataType := range columns {
-		converted := common.Convert(dataType)
-		if converted == "-1" {
-			// TODO: error handling
-			continue
-		}
-		data[clumn] = common.Convert(dataType)
-	}
-	return template.DaoPostgres{
-		TableName: table,
-		Pk:        pk,
-		Dao:       data,
-		Columns:   columnsKey(columns),
-	}
-}
-
 func (t outputExecutor) Execute(request common.Request, table string, columns map[string]common.GoDataType, pk []string) (*OutputResult, error) {
 	writer, err := newWriter(table, file)
 	if err != nil {
@@ -93,5 +65,33 @@ func newWriter(table string, writer writer) (io.Writer, error) {
 		return os.Stdout, nil
 	default:
 		return nil, errors.New("unknown writer type")
+	}
+}
+
+func columnsKey(columns map[string]common.GoDataType) []string {
+	keys := make([]string, 0, len(columns))
+	for key := range columns {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func newData(table string, columns map[string]common.GoDataType, pk []string) template.DaoPostgres {
+	data := make(map[template.Column]template.DataType)
+
+	for clumn, dataType := range columns {
+		converted := common.Convert(dataType)
+		if converted == "-1" {
+			// TODO: error handling
+			continue
+		}
+		data[clumn] = common.Convert(dataType)
+	}
+	return template.DaoPostgres{
+		TableName: table,
+		Pk:        pk,
+		Dao:       data,
+		Columns:   columnsKey(columns),
 	}
 }

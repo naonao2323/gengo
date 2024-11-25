@@ -161,8 +161,7 @@ func newFuncMap() template.FuncMap {
 			}
 			return liner(scan)
 		},
-		Insert: func(table string, dao Dao) string {
-			columns := columns(dao)
+		Insert: func(table string, columns []Column) string {
 			var builder strings.Builder
 			builder.WriteString(fmt.Sprintf("INSERT INTO %s ", table))
 			func() {
@@ -188,8 +187,7 @@ func newFuncMap() template.FuncMap {
 			}()
 			return builder.String()
 		},
-		Update: func(table string, dao Dao, pk []string) string {
-			columns := columns(dao)
+		Update: func(table string, columns []Column, pk []string) string {
 			incrementer := func() func() int {
 				add := 0
 				return func() int {
@@ -233,10 +231,10 @@ func newFuncMap() template.FuncMap {
 			}
 			return builder.String()
 		},
-		WithTarget: func(target string, dao Dao) string {
-			fields := make([]string, 0, len(dao))
-			for key := range dao {
-				fields = append(fields, fmt.Sprintf("%s.%s", target, key))
+		WithTarget: func(target string, columns []Column) string {
+			fields := make([]string, 0, len(columns))
+			for i := range columns {
+				fields = append(fields, fmt.Sprintf("%s.%s", target, columns[i]))
 			}
 			var builder strings.Builder
 			for i := range fields {
