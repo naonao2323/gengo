@@ -70,7 +70,7 @@ func (s *daoStateMachine) Run(ctx context.Context, events chan DaoEvent) error {
 		}
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return nil
 		case events <- event:
 			return nil
 		}
