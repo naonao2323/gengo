@@ -11,8 +11,8 @@ func WithCondition(ctx context.Context, expected int) (context.Context, func()) 
 	mutex := &sync.Mutex{}
 	cancelWithCondition := func() {
 		mutex.Lock()
-		target++
 		defer mutex.Unlock()
+		target++
 		if expected <= target {
 			cancel()
 		}

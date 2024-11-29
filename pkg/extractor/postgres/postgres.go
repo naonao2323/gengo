@@ -217,6 +217,7 @@ func InitTables(ctx context.Context, db *sql.DB, schema string) Tables {
 	for i := range tableNames {
 		table, err := fetchTable(ctx, db, tableNames[i])
 		if err != nil {
+			fmt.Printf("%v", err)
 			panic(err.Error)
 		}
 		if table == nil {
@@ -336,33 +337,38 @@ const (
 func convert(dataType string) (PostgresDataType, error) {
 	fmt.Printf("%v\n", dataType)
 	dataTypeMap := map[string]PostgresDataType{
-		"integer":                  INTEGER,
-		"bigint":                   BIGINT,
-		"smallint":                 SMALLINT,
-		"numeric":                  NUMERIC,
-		"decimal":                  DECIMAL,
-		"real":                     REAL,
-		"double":                   DOUBLE,
-		"double precision":         DOUBLEPRECISION,
-		"text":                     TEXT,
-		"varchar":                  VARCHAR,
-		"character varying":        VARCHAR,
-		"char":                     CHAR,
-		"date":                     DATE,
-		"time":                     TIME,
-		"timestamp":                TIMESTAMP,
-		"interval":                 INTERVAL,
-		"boolean":                  BOOLEAN,
-		"integer[]":                INTEGERARRAY,
-		"text[]":                   TEXTARRAY,
-		"json":                     JSON,
-		"jsonb":                    JSONB,
-		"uuid":                     UUID,
-		"timestamp with time zone": TIMESTAMP,
+		"integer":                     INTEGER,
+		"bigint":                      BIGINT,
+		"smallint":                    SMALLINT,
+		"numeric":                     NUMERIC,
+		"decimal":                     DECIMAL,
+		"real":                        REAL,
+		"double":                      DOUBLE,
+		"double precision":            DOUBLEPRECISION,
+		"text":                        TEXT,
+		"varchar":                     VARCHAR,
+		"character varying":           VARCHAR,
+		"char":                        CHAR,
+		"date":                        DATE,
+		"time":                        TIME,
+		"timestamp":                   TIMESTAMP,
+		"interval":                    INTERVAL,
+		"boolean":                     BOOLEAN,
+		"integer[]":                   INTEGERARRAY,
+		"text[]":                      TEXTARRAY,
+		"json":                        JSON,
+		"jsonb":                       JSONB,
+		"uuid":                        UUID,
+		"timestamp with time zone":    TIMESTAMP,
+		"timestamp without time zone": TIMESTAMP,
 	}
-	normalized := strings.ToLower(dataType)
+	normalize := func() string {
+		return strings.TrimSpace(strings.ToLower(dataType))
+	}
+	normalized := normalize()
 	if postgresType, exists := dataTypeMap[normalized]; exists {
 		return postgresType, nil
 	}
+	fmt.Println("timestamp with time zone", "timestamp without time zone")
 	return -1, fmt.Errorf("unknown Postgres data type: %s", dataType)
 }

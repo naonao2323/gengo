@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestExecute(t *testing.T) {
+func TestNewFuncMap(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name string

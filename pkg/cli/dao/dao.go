@@ -2,9 +2,12 @@ package dao
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/naonao2323/testgen/pkg/common"
+	"github.com/naonao2323/testgen/pkg/config"
+	"github.com/naonao2323/testgen/pkg/config/yaml"
 	"github.com/naonao2323/testgen/pkg/executor"
 	"github.com/naonao2323/testgen/pkg/executor/output"
 	"github.com/naonao2323/testgen/pkg/executor/table"
@@ -19,29 +22,42 @@ import (
 type dao struct {
 	extractor extractor.Extractor
 	optimizer optimizer.Optimizer
+	config    config.Config
+	confPath  string
 }
 
 func NewCommand() *cobra.Command {
-	ctx := context.Background()
-	schema := "public"
-	source := "postgres://root:rootpass@localhost:5432/app?sslmode=disable"
-	extractor := extractor.Extract(ctx, extractor.Postgres, schema, source)
-	optimizer := optimizer.NewOptimizer(extractor)
-	g := dao{
-		extractor: extractor,
-		optimizer: optimizer,
-	}
+	d := &dao{}
 	cmd := cobra.Command{
-		Use:   "dao",
-		Short: "generate dao by cli",
-		RunE:  g.run,
+		Use:     "dao",
+		Short:   "generate dao by cli",
+		RunE:    d.run,
+		PreRunE: d.setup,
 	}
+	cmd.Flags().StringVar(&d.confPath, "path", d.confPath, "config file path")
 	return &cmd
+}
+
+func (d *dao) setup(cmd *cobra.Command, args []string) error {
+	if d.confPath == "" {
+		return errors.New("undefined conf path")
+	}
+	config, err := yaml.NewConfig(d.confPath)
+	if err != nil {
+		return err
+	}
+	d.config = config
+	ctx := context.Background()
+	extractor := extractor.Extract(ctx, extractor.Postgres, d.config.GetSchema(), d.config.GetDbUrl())
+	optimizer := optimizer.NewOptimizer(extractor)
+	d.extractor = extractor
+	d.optimizer = optimizer
+	return nil
 }
 
 func (d *dao) run(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	events := d.optimizer.Optimize(ctx, 10, common.DaoPostgresRequest)
+	events := d.optimizer.Optimize(ctx, d.config.GetParallel(), common.DaoPostgresRequest)
 	ctx, cancel := util.WithCondition(ctx, len(events))
 	errors := make(chan error, len(events))
 	template, err := template.NewTemplate(nil)
