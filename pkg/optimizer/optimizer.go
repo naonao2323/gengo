@@ -9,10 +9,6 @@ import (
 	"github.com/naonao2323/testgen/pkg/state"
 )
 
-// 副作用を中心にstate machineを作成して、うまく回せるようにする。
-// evnetを生成する責務を持つ。
-// tableからeventを作成する。
-
 func NewOptimizer(extractor extractor.Extractor) Optimizer {
 	return optimizer{
 		extractor,
@@ -31,6 +27,10 @@ type Optimizer interface {
 func (o optimizer) Optimize(ctx context.Context, concurrent int, request common.Request) chan state.DaoEvent {
 	tables := o.extractor.ListTableNames()
 	events := make(chan state.DaoEvent, concurrent)
+	if len(tables) <= 0 {
+		close(events)
+		return events
+	}
 	go func() {
 		o.publish(ctx, tables, request, events)
 	}()

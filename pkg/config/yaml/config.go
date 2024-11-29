@@ -2,13 +2,17 @@ package yaml
 
 import (
 	"os"
+	"runtime"
 
 	"gopkg.in/yaml.v3"
+
+	ConfigParser "github.com/naonao2323/testgen/pkg/config"
 )
 
 type configImpl struct {
-	Schema string `yaml:"schema"`
-	DBURL  string `yaml:"dbUrl"`
+	Schema   string `yaml:"schema"`
+	DbUrl    string `yaml:"dbUrl"`
+	Parallel *int   `yaml:"parallel"`
 }
 
 type Deploy = int
@@ -20,12 +24,7 @@ const (
 	Container
 )
 
-type Config interface {
-	GetSchema() string
-	GetDBURL() string
-}
-
-func NewConfig(path string) (Config, error) {
+func NewConfig(path string) (ConfigParser.Config, error) {
 	config, err := parseConfig(path)
 	if err != nil {
 		return nil, err
@@ -33,7 +32,7 @@ func NewConfig(path string) (Config, error) {
 	return config, nil
 }
 
-func parseConfig(path string) (Config, error) {
+func parseConfig(path string) (*configImpl, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -43,13 +42,20 @@ func parseConfig(path string) (Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	return config, nil
+	return &config, nil
 }
 
 func (c configImpl) GetSchema() string {
 	return c.Schema
 }
 
-func (c configImpl) GetDBURL() string {
-	return c.DBURL
+func (c configImpl) GetDbUrl() string {
+	return c.DbUrl
+}
+
+func (c configImpl) GetParallel() int {
+	if c.Parallel == nil {
+		return runtime.NumCPU()
+	}
+	return *c.Parallel
 }
