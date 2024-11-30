@@ -13,7 +13,7 @@ import (
 func NewDB(dataSource string) *sql.DB {
 	db, err := sql.Open("postgres", dataSource)
 	if err != nil {
-		fmt.Println(err)
+		panic(err)
 	}
 	return db
 }

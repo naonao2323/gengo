@@ -57,7 +57,7 @@ func (d *dao) setup(cmd *cobra.Command, args []string) error {
 
 func (d *dao) run(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	events := d.optimizer.Optimize(ctx, d.config.GetParallel(), common.DaoPostgresRequest)
+	events := d.optimizer.Optimize(ctx, d.config.GetParallel(), d.config.GetInclude(), common.DaoPostgresRequest)
 	ctx, cancel := util.WithCondition(ctx, len(events))
 	errors := make(chan error, len(events))
 	template, err := template.NewTemplate(nil)
