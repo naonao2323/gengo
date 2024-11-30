@@ -26,14 +26,14 @@ type Optimizer interface {
 // dao, testContainer, testFixtureとそれぞれのプロバイダーの組み合わせがあって、どの組みを実行したいのかを良い感じに最適化する
 func (o optimizer) Optimize(ctx context.Context, concurrent int, include []string, request common.Request) chan state.DaoEvent {
 	tables := o.extractor.ListTableNames()
-	filterd := filterTables(tables, include)
-	events := make(chan state.DaoEvent, len(filterd))
-	if len(filterd) <= 0 {
+	filtered := filterTables(tables, include)
+	events := make(chan state.DaoEvent, len(filtered))
+	if len(filtered) <= 0 {
 		close(events)
 		return events
 	}
 	go func() {
-		o.publish(ctx, filterd, request, events)
+		o.publish(ctx, filtered, request, events)
 	}()
 	return events
 }
