@@ -65,7 +65,7 @@ func (d *dao) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
+	for i := 0; i < d.config.GetParallel(); i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
