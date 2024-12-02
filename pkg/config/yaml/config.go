@@ -10,10 +10,10 @@ import (
 )
 
 type configImpl struct {
-	Schema   string   `yaml:"schema"`
-	DbUrl    string   `yaml:"dbUrl"`
-	Parallel *int     `yaml:"parallel"`
-	Include  []string `yaml:"include"`
+	Schema   string    `yaml:"schema"`
+	DbUrl    string    `yaml:"dbUrl"`
+	Parallel *int      `yaml:"parallel"`
+	Include  *[]string `yaml:"include"`
 }
 
 type Deploy = int
@@ -46,7 +46,7 @@ func parseConfig(path string) (*configImpl, error) {
 	return &config, nil
 }
 
-func (c configImpl) GetInclude() []string {
+func (c configImpl) GetInclude() *[]string {
 	return c.Include
 }
 

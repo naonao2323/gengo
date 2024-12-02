@@ -15,7 +15,7 @@ type State interface {
 }
 
 type daoStateMachine struct {
-	cancel         func()
+	done           func()
 	treeExecutor   executor.TreeExecutor
 	tableExecutor  table.TableExecutor
 	outputExecutor output.OutputExecutor
@@ -44,13 +44,13 @@ type (
 )
 
 func NewDaoState(
-	cancel func(),
+	done func(),
 	treeExecutor executor.TreeExecutor,
 	tableExecutor table.TableExecutor,
 	outputExecutor output.OutputExecutor,
 ) State {
 	return &daoStateMachine{
-		cancel:         cancel,
+		done:           done,
 		treeExecutor:   treeExecutor,
 		tableExecutor:  tableExecutor,
 		outputExecutor: outputExecutor,
@@ -102,7 +102,7 @@ func (s *daoStateMachine) Run(ctx context.Context, events chan DaoEvent) error {
 				return err
 			}
 		case DaoStateDone:
-			s.cancel()
+			s.done()
 			return nil
 		}
 		return nil
