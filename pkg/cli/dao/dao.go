@@ -57,7 +57,7 @@ func (d *dao) setup(cmd *cobra.Command, args []string) error {
 
 func (d *dao) run(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	events := d.optimizer.Optimize(ctx, d.config.GetParallel(), common.DaoPostgresRequest)
+	events := d.optimizer.Optimize(ctx, d.config.GetInclude(), common.DaoPostgresRequest)
 	ctx, cancel := util.WithCondition(ctx, len(events))
 	errors := make(chan error, len(events))
 	template, err := template.NewTemplate(nil)
@@ -65,7 +65,7 @@ func (d *dao) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
+	for i := 0; i < d.config.GetParallel(); i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
