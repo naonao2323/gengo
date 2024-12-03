@@ -42,7 +42,7 @@ func (d {{.TableName }}Dao) Update(db *sql.DB, {{ range $pk := .Pk}}{{ $pk }} {{
 }
 
 func (d {{.TableName }}Dao) Delete(db *sql.DB, {{ argumentPk $.Pk $.DataTypes }}) (int64, error) {
-	m, err := db.Exec({{ backQuote }}{{ delete $.TableName $.Pk }}{{ backQuote }}, {{ PkLiner $.Pk }})
+	m, err := db.Exec({{ backQuote }}{{ delete $.TableName $.Pk }}{{ backQuote }}, {{ pkLiner $.Pk }})
 	if err != nil {
 		return 0, err
 	}
@@ -54,7 +54,7 @@ func (d {{.TableName }}Dao) Delete(db *sql.DB, {{ argumentPk $.Pk $.DataTypes }}
 }
 
 func (d {{.TableName }}Dao) Get(db *sql.DB, {{ argumentPk $.Pk $.DataTypes }}) (*{{.TableName}}, error) {
-	m := db.QueryRow("SELECT {{ listLiner $.Columns }} FROM {{.TableName}} WHERE {{ where $.Pk $.DataTypes }}", {{ listLiner $.Pk }})
+	m := db.QueryRow("SELECT {{ listLiner $.Columns }} FROM {{.TableName}} WHERE {{ where $.Pk }}", {{ listLiner $.Pk }})
 	if err := m.Err(); err != nil {
 		return nil, err
 	}
