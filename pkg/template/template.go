@@ -10,15 +10,14 @@ import (
 )
 
 type (
-	Column   = string
-	Value    = string
-	DataType = string
-	// Daoじゃなくて抽象的な命名にする。
-	Dao         map[Column]DataType
-	DaoPostgres struct {
+	Column           = string
+	Value            = string
+	DataType         = string
+	DataTypeByColumn = map[Column]DataType
+	Data             struct {
 		TableName string
 		Pk        []Column
-		Dao       Dao
+		DataTypes DataTypeByColumn
 		Columns   []Column
 	}
 )
@@ -51,7 +50,7 @@ const (
 	Delete                = FuncMapKey("delete")
 	WithTarget            = FuncMapKey("withTarget")
 	WithPk                = FuncMapKey("withPk")
-	WithTmp               = FuncMapKey("withTmp")
+	PkLiner               = FuncMapKey("pkLiner")
 	ArgumentPk            = FuncMapKey("argumentPk")
 )
 
@@ -108,6 +107,7 @@ func newFuncMap() template.FuncMap {
 		ListLiner: func(in []string) string {
 			return liner(in)
 		},
+		// ここもうちょっと具体的に名前にできないか考える
 		MapLiner: func(in map[string]string) string {
 			keys := make([]string, 0, len(in))
 			for key := range in {
@@ -115,7 +115,10 @@ func newFuncMap() template.FuncMap {
 			}
 			return liner(keys)
 		},
-		Where: func(pk []string, dao map[string]string) string {
+		Where: func(pk []string) string {
+			if len(pk) == 0 {
+				return ""
+			}
 			where := make([]string, 0)
 			for i := range pk {
 				where = append(where, fmt.Sprintf("%v = $%d", pk[i], i+1))
@@ -130,24 +133,24 @@ func newFuncMap() template.FuncMap {
 			return resp.String()
 		},
 		BackQuote: func() string { return "`" },
-		PkType: func(pk Column, dao map[Column]DataType) string {
-			v, ok := dao[pk]
+		PkType: func(pk Column, columnsByType map[Column]DataType) string {
+			v, ok := columnsByType[pk]
 			if !ok {
 				panic("unexpected columns")
 			}
 			return v
 		},
-		Argument: func(dao Dao) string {
+		Argument: func(dao DataTypeByColumn) string {
 			argument := make([]string, 0)
 			for k, v := range dao {
 				argument = append(argument, fmt.Sprintf("%v %v", k, v))
 			}
 			return liner(argument)
 		},
-		ArgumentPk: func(pk []string, dao Dao) string {
+		ArgumentPk: func(pk []string, types DataTypeByColumn) string {
 			var builder strings.Builder
 			for i := range pk {
-				builder.WriteString(fmt.Sprintf("%v %v", pk[i], dao[pk[i]]))
+				builder.WriteString(fmt.Sprintf("%v %v", pk[i], types[pk[i]]))
 				if i < len(pk)-1 {
 					builder.WriteString(", ")
 				}
@@ -188,6 +191,9 @@ func newFuncMap() template.FuncMap {
 			return builder.String()
 		},
 		Update: func(table string, columns []Column, pk []string) string {
+			if len(columns) == 0 || len(pk) == 0 {
+				return ""
+			}
 			incrementer := func() func() int {
 				add := 0
 				return func() int {
@@ -207,7 +213,7 @@ func newFuncMap() template.FuncMap {
 					}
 				}
 				builder.WriteString(fmt.Sprintf("%s.%s = $%d", table, columns[i], incrementer()))
-				if i < len(columns)-1 && i > 0 {
+				if i < len(columns)-1 {
 					builder.WriteRune(',')
 				}
 			}
@@ -221,6 +227,9 @@ func newFuncMap() template.FuncMap {
 			return builder.String()
 		},
 		Delete: func(table string, pk []string) string {
+			if len(pk) == 0 {
+				return ""
+			}
 			var builder strings.Builder
 			builder.WriteString(fmt.Sprintf("DELETE FROM %s Where ", table))
 			for i := range pk {
@@ -245,7 +254,7 @@ func newFuncMap() template.FuncMap {
 			}
 			return builder.String()
 		},
-		WithPk: func(target string, dao Dao, pk []string) string {
+		WithPk: func(target string, dao DataTypeByColumn, pk []string) string {
 			columns := columns(dao)
 			var builder strings.Builder
 		LOOP:
@@ -271,7 +280,7 @@ func newFuncMap() template.FuncMap {
 			}
 			return builder.String()
 		},
-		WithTmp: func(pk []string) string {
+		PkLiner: func(pk []string) string {
 			var builder strings.Builder
 			for i := range pk {
 				builder.WriteString(fmt.Sprintf("%v", pk[i]))
@@ -284,15 +293,7 @@ func newFuncMap() template.FuncMap {
 	}
 }
 
-func columns(dao Dao) []string {
-	columns := make([]string, 0, len(dao))
-	for key := range dao {
-		columns = append(columns, key)
-	}
-	return columns
-}
-
-func (t *Template) Execute(templateType DefaultTemplateType, writer io.Writer, data DaoPostgres) error {
+func (t *Template) Execute(templateType DefaultTemplateType, writer io.Writer, data Data) error {
 	if t == nil {
 		return nil
 	}
@@ -301,4 +302,12 @@ func (t *Template) Execute(templateType DefaultTemplateType, writer io.Writer, d
 		return err
 	}
 	return nil
+}
+
+func columns(dao DataTypeByColumn) []string {
+	columns := make([]string, 0, len(dao))
+	for key := range dao {
+		columns = append(columns, key)
+	}
+	return columns
 }
