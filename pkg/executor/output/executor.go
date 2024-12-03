@@ -77,7 +77,7 @@ func columnsKey(columns map[string]common.GoDataType) []string {
 	return keys
 }
 
-func newData(table string, columns map[string]common.GoDataType, pk []string) template.DaoPostgres {
+func newData(table string, columns map[string]common.GoDataType, pk []string) template.Data {
 	data := make(map[template.Column]template.DataType)
 
 	for clumn, dataType := range columns {
@@ -88,10 +88,10 @@ func newData(table string, columns map[string]common.GoDataType, pk []string) te
 		}
 		data[clumn] = common.Convert(dataType)
 	}
-	return template.DaoPostgres{
+	return template.Data{
 		TableName: table,
 		Pk:        pk,
-		Dao:       data,
+		DataTypes: data,
 		Columns:   columnsKey(columns),
 	}
 }
