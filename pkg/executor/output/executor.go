@@ -18,17 +18,19 @@ type OutputExecutor interface {
 }
 
 type outputExecutor struct {
-	template *template.Template
+	template   *template.Template
+	outputPath string
 }
 
-func NewOutputExecutor(template *template.Template) OutputExecutor {
+func NewOutputExecutor(template *template.Template, outputPath string) OutputExecutor {
 	return outputExecutor{
-		template: template,
+		template:   template,
+		outputPath: outputPath,
 	}
 }
 
 func (t outputExecutor) Execute(request common.Request, table string, columns map[string]common.GoDataType, pk []string) (*OutputResult, error) {
-	writer, err := newWriter(table, file)
+	writer, err := newWriter(t.outputPath, table, file)
 	if err != nil {
 		return nil, err
 	}
@@ -53,19 +55,33 @@ const (
 	sdout
 )
 
-func newWriter(table string, writer writer) (io.Writer, error) {
+func newWriter(output string, table string, writer writer) (io.Writer, error) {
 	switch writer {
 	case file:
-		file, err := os.Create(fmt.Sprintf("../../test/%v.go", table))
-		if err != nil {
-			return nil, err
-		}
-		return file, nil
+		return fileWriter(output, table)
 	case sdout:
+		// TODO: 柔軟できるようにする
 		return os.Stdout, nil
 	default:
 		return nil, errors.New("unknown writer type")
 	}
+}
+
+func fileWriter(output string, table string) (io.Writer, error) {
+	_, err := os.Stat(output)
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = os.MkdirAll(output, 0o755)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	file, err := os.Create(fmt.Sprintf("%v/%v.go", output, table))
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
 }
 
 func columnsKey(columns map[string]common.GoDataType) []string {

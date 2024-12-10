@@ -20,10 +20,11 @@ import (
 )
 
 type dao struct {
-	extractor extractor.Extractor
-	optimizer optimizer.Optimizer
-	config    config.Config
-	confPath  string
+	extractor  extractor.Extractor
+	optimizer  optimizer.Optimizer
+	config     config.Config
+	confPath   string
+	outputPath string
 }
 
 func NewCommand() *cobra.Command {
@@ -35,12 +36,16 @@ func NewCommand() *cobra.Command {
 		PreRunE: d.setup,
 	}
 	cmd.Flags().StringVar(&d.confPath, "path", d.confPath, "config file path")
+	cmd.Flags().StringVar(&d.outputPath, "outputPath", d.outputPath, "output dir path")
 	return &cmd
 }
 
 func (d *dao) setup(cmd *cobra.Command, args []string) error {
 	if d.confPath == "" {
 		return errors.New("undefined conf path")
+	}
+	if d.outputPath == "" {
+		return errors.New("undefined output path")
 	}
 	config, err := yaml.NewConfig(d.confPath)
 	if err != nil {
@@ -73,7 +78,7 @@ func (d *dao) run(cmd *cobra.Command, args []string) error {
 				cancel,
 				executor.NewTreeExecutor(),
 				table.NewTableExecutor(d.extractor),
-				output.NewOutputExecutor(template),
+				output.NewOutputExecutor(template, d.outputPath),
 			)
 			if err := state.Run(ctx, events); err != nil {
 				errors <- err
