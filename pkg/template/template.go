@@ -38,20 +38,21 @@ const (
 type FuncMapKey = string
 
 const (
-	ListLiner  FuncMapKey = FuncMapKey("listLiner")
-	MapLiner              = FuncMapKey("mapLiner")
-	Where                 = FuncMapKey("where")
-	BackQuote             = FuncMapKey("backQuote")
-	PkType                = FuncMapKey("pkType")
-	Argument              = FuncMapKey("argument")
-	Scan                  = FuncMapKey("scan")
-	Insert                = FuncMapKey("insert")
-	Update                = FuncMapKey("update")
-	Delete                = FuncMapKey("delete")
-	WithTarget            = FuncMapKey("withTarget")
-	WithPk                = FuncMapKey("withPk")
-	PkLiner               = FuncMapKey("pkLiner")
-	ArgumentPk            = FuncMapKey("argumentPk")
+	ListLiner        FuncMapKey = FuncMapKey("listLiner")
+	MapLiner                    = FuncMapKey("mapLiner")
+	Where                       = FuncMapKey("where")
+	BackQuote                   = FuncMapKey("backQuote")
+	PkType                      = FuncMapKey("pkType")
+	Argument                    = FuncMapKey("argument")
+	Scan                        = FuncMapKey("scan")
+	Insert                      = FuncMapKey("insert")
+	Update                      = FuncMapKey("update")
+	Delete                      = FuncMapKey("delete")
+	WithTarget                  = FuncMapKey("withTarget")
+	WithPk                      = FuncMapKey("withPk")
+	PkLiner                     = FuncMapKey("pkLiner")
+	ArgumentPk                  = FuncMapKey("argumentPk")
+	IsPrimaryKeyOnly            = FuncMapKey("isPrimaryKeyOnly")
 )
 
 func NewTemplate(optionFuncMap template.FuncMap) (*Template, error) {
@@ -279,7 +280,7 @@ func newFuncMap() template.FuncMap {
 			}
 			return builder.String()
 		},
-		PkLiner: func(pk []string) string {
+		PkLiner: func(pk []Column) string {
 			var builder strings.Builder
 			for i := range pk {
 				builder.WriteString(fmt.Sprintf("%v", pk[i]))
@@ -288,6 +289,23 @@ func newFuncMap() template.FuncMap {
 				}
 			}
 			return builder.String()
+		},
+		IsPrimaryKeyOnly: func(pk []Column, columns DataTypeByColumn) bool {
+			cnt := 0
+			in := func(column Column) bool {
+				for i := range pk {
+					if column == pk[i] {
+						return true
+					}
+				}
+				return false
+			}
+			for c := range columns {
+				if !in(c) {
+					cnt++
+				}
+			}
+			return cnt == len(pk)
 		},
 	}
 }

@@ -286,3 +286,58 @@ func TestFuncMapDelete(t *testing.T) {
 		})
 	}
 }
+
+func TestFuncMapIsPrimaryKeyOnly(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		pk       []Column
+		columns  DataTypeByColumn
+		expected bool
+	}{
+		{
+			name: "pk is empty",
+			pk:   []Column{},
+			columns: DataTypeByColumn{
+				"test1": Insert,
+				"test2": Insert,
+			},
+			expected: false,
+		},
+		{
+			name:     "columns is empty",
+			pk:       []Column{"test1", "test2"},
+			columns:  DataTypeByColumn{},
+			expected: false,
+		},
+		{
+			name: "there are non-primary key columns",
+			pk:   []Column{"test1", "test2"},
+			columns: DataTypeByColumn{
+				"test1": Insert,
+				"test2": Insert,
+				"test3": Insert,
+				"test4": Insert,
+			},
+			expected: true,
+		},
+		{
+			name:     "there are no non-primary key columns",
+			pk:       []Column{"test1", "test2"},
+			columns:  DataTypeByColumn{},
+			expected: false,
+		},
+	}
+	funcMap := newFuncMap()
+	for _, _test := range tests {
+		test := _test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			only := funcMap[IsPrimaryKeyOnly].(func(pk []Column, columns DataTypeByColumn) bool)
+			actual := only(test.pk, test.columns)
+			if actual != test.expected {
+				t.Fatalf("does match resp actual: %v, expected: %v", actual, test.expected)
+			}
+		})
+	}
+}
