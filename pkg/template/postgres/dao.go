@@ -30,7 +30,7 @@ func (d {{.TableName }}Dao) Create(db *sql.DB, target {{ .TableName }}) (int64, 
 }
 
 func (d {{.TableName }}Dao) Update(db *sql.DB, {{ range $pk := .Pk}}{{ $pk }} {{ pkType $pk $.DataTypes }},{{- end}} target {{ .TableName }}) (int64, error) {
-	m, err := db.Exec({{ backQuote }}{{ update $.TableName $.Columns $.Pk }}{{ backQuote }}, {{ withPk "target" $.DataTypes $.Pk}})
+	m, err := db.Exec({{ backQuote }}{{ update $.TableName $.Columns $.Pk }}{{ backQuote }}, {{ withPk "target" $.Columns $.Pk}})
 	if err != nil {
 		return 0, err
 	}
