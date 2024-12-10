@@ -254,8 +254,7 @@ func newFuncMap() template.FuncMap {
 			}
 			return builder.String()
 		},
-		WithPk: func(target string, dao DataTypeByColumn, pk []string) string {
-			columns := columns(dao)
+		WithPk: func(target string, columns []Column, pk []string) string {
 			var builder strings.Builder
 		LOOP:
 			for i := range columns {
@@ -302,12 +301,4 @@ func (t *Template) Execute(templateType DefaultTemplateType, writer io.Writer, d
 		return err
 	}
 	return nil
-}
-
-func columns(dao DataTypeByColumn) []string {
-	columns := make([]string, 0, len(dao))
-	for key := range dao {
-		columns = append(columns, key)
-	}
-	return columns
 }
