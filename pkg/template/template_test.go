@@ -286,3 +286,38 @@ func TestFuncMapDelete(t *testing.T) {
 		})
 	}
 }
+
+func TestFuncMapIsPrimaryKeyOnly(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		pk       []Column
+		columns  DataTypeByColumn
+		expected bool
+	}{
+		{
+			name: "pk is empty",
+		},
+		{
+			name: "columns is empty",
+		},
+		{
+			name: "there are non-primary key columns",
+		},
+		{
+			name: "there are no non-primary key columns",
+		},
+	}
+	funcMap := newFuncMap()
+	for _, _test := range tests {
+		test := _test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			only := funcMap[IsPrimaryKeyOnly].(func(pk []Column, columns DataTypeByColumn) bool)
+			actual := only(test.pk, test.columns)
+			if actual != test.expected {
+				t.Fatalf("does match resp actual: %v, expected: %v", actual, test.expected)
+			}
+		})
+	}
+}
