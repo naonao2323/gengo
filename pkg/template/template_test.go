@@ -297,15 +297,35 @@ func TestFuncMapIsPrimaryKeyOnly(t *testing.T) {
 	}{
 		{
 			name: "pk is empty",
+			pk:   []Column{},
+			columns: DataTypeByColumn{
+				"test1": Insert,
+				"test2": Insert,
+			},
+			expected: false,
 		},
 		{
-			name: "columns is empty",
+			name:     "columns is empty",
+			pk:       []Column{"test1", "test2"},
+			columns:  DataTypeByColumn{},
+			expected: false,
 		},
 		{
 			name: "there are non-primary key columns",
+			pk:   []Column{"test1", "test2"},
+			columns: DataTypeByColumn{
+				"test1": Insert,
+				"test2": Insert,
+				"test3": Insert,
+				"test4": Insert,
+			},
+			expected: true,
 		},
 		{
-			name: "there are no non-primary key columns",
+			name:     "there are no non-primary key columns",
+			pk:       []Column{"test1", "test2"},
+			columns:  DataTypeByColumn{},
+			expected: false,
 		},
 	}
 	funcMap := newFuncMap()
