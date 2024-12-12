@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/naonao2323/testgen/pkg/common"
+	"github.com/naonao2323/testgen/pkg/extractor"
 	"github.com/naonao2323/testgen/pkg/template"
 )
 
@@ -18,14 +19,16 @@ type OutputExecutor interface {
 }
 
 type outputExecutor struct {
+	extractor  extractor.Extractor
 	template   *template.Template
 	outputPath string
 }
 
-func NewOutputExecutor(template *template.Template, outputPath string) OutputExecutor {
+func NewOutputExecutor(template *template.Template, outputPath string, extractor extractor.Extractor) OutputExecutor {
 	return outputExecutor{
 		template:   template,
 		outputPath: outputPath,
+		extractor:  extractor,
 	}
 }
 
@@ -36,7 +39,7 @@ func (t outputExecutor) Execute(request common.Request, table string, columns ma
 	}
 	switch request {
 	case common.DaoPostgresRequest:
-		err := t.template.Execute(template.PostgresDao, writer, newData(table, columns, pk))
+		err := t.template.Execute(template.PostgresDao, writer, t.newData(table, columns, pk))
 		if err != nil {
 			return &OutputResult{}, err
 		}
@@ -93,9 +96,8 @@ func columnsKey(columns map[string]common.GoDataType) []string {
 	return keys
 }
 
-func newData(table string, columns map[string]common.GoDataType, pk []string) template.Data {
+func (t outputExecutor) newData(table string, columns map[string]common.GoDataType, pk []string) template.Data {
 	data := make(map[template.Column]template.DataType)
-
 	for clumn, dataType := range columns {
 		converted := common.Convert(dataType)
 		if converted == "-1" {
@@ -104,10 +106,20 @@ func newData(table string, columns map[string]common.GoDataType, pk []string) te
 		}
 		data[clumn] = common.Convert(dataType)
 	}
+	toSet := func(target []string) map[string]struct{} {
+		set := make(map[string]struct{}, len(target))
+		for i := range target {
+			set[target[i]] = struct{}{}
+		}
+
+		return set
+	}
+	reserved := t.extractor.ListReservedWord()
 	return template.Data{
 		TableName: table,
 		Pk:        pk,
 		DataTypes: data,
 		Columns:   columnsKey(columns),
+		Reserved:  toSet(reserved),
 	}
 }

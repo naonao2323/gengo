@@ -185,19 +185,31 @@ func TestFuncMapInsert(t *testing.T) {
 		name     string
 		table    string
 		columns  []Column
+		reserved map[string]struct{}
 		expected string
 	}{
 		{
-			name:     "call Insert",
+			name:     "when columns is empty",
+			table:    "test",
+			columns:  []Column{},
+			reserved: map[string]struct{}{},
+			expected: "INSERT INTO test () VALUES () ",
+		},
+		{
+			name:     "when colums is not empty",
 			table:    "test",
 			columns:  []Column{"test1", "test2", "test3"},
+			reserved: map[string]struct{}{},
 			expected: "INSERT INTO test (test1,test2,test3) VALUES ($1,$2,$3) ",
 		},
 		{
-			name:     "call Insert when columns is empty",
-			table:    "test",
-			columns:  []Column{},
-			expected: "INSERT INTO test () VALUES () ",
+			name:    "when columns is not empty and include reserved",
+			table:   "test",
+			columns: []Column{"test1", "test2", "test3"},
+			reserved: map[string]struct{}{
+				"test1": {},
+			},
+			expected: "INSERT INTO test ('test1',test2,test3) VALUES ($1,$2,$3) ",
 		},
 	}
 	funcMap := newFuncMap()
@@ -205,8 +217,8 @@ func TestFuncMapInsert(t *testing.T) {
 		test := _test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			insert := funcMap[Insert].(func(table string, columns []Column) string)
-			actual := insert(test.table, test.columns)
+			insert := funcMap[Insert].(func(table string, columns []Column, reserverd map[string]struct{}) string)
+			actual := insert(test.table, test.columns, test.reserved)
 			if actual != test.expected {
 				t.Fatalf("does match resp actual: %v,expected: %v", actual, test.expected)
 			}
@@ -221,21 +233,34 @@ func TestFuncMapUpdate(t *testing.T) {
 		table    string
 		columns  []Column
 		pk       []string
+		reserved map[string]struct{}
 		expected string
 	}{
 		{
-			name:     "call Update",
-			table:    "test",
-			columns:  []Column{"test1", "test2"},
-			pk:       []string{"pk1", "p2"},
-			expected: "UPDATE test SET test.test1 = $1,test.test2 = $2 WHERE pk1 = $3 AND p2 = $4",
-		},
-		{
-			name:     "call Update when columns is empty",
+			name:     "when columns is empty",
 			table:    "test",
 			columns:  []Column{},
 			pk:       []string{"test1"},
+			reserved: map[string]struct{}{},
 			expected: "",
+		},
+		{
+			name:     "when columns is not empty",
+			table:    "test",
+			columns:  []Column{"test1", "test2", "test3", "pk1", "pk2"},
+			pk:       []string{"pk1", "pk2"},
+			reserved: map[string]struct{}{},
+			expected: "UPDATE test SET test1 = $1, test2 = $2, test3 = $3 WHERE pk1 = $4 AND pk2 = $5",
+		},
+		{
+			name:    "when columns is not empty and include reserved",
+			table:   "test",
+			columns: []Column{"test1", "test2", "pk1", "pk2"},
+			pk:      []string{"pk1", "pk2"},
+			reserved: map[string]struct{}{
+				"test1": {},
+			},
+			expected: "UPDATE test SET 'test1' = $1, test2 = $2 WHERE pk1 = $3 AND pk2 = $4",
 		},
 	}
 	funcMap := newFuncMap()
@@ -243,8 +268,8 @@ func TestFuncMapUpdate(t *testing.T) {
 		test := _test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			update := funcMap[Update].(func(table string, columns []Column, pk []string) string)
-			actual := update(test.table, test.columns, test.pk)
+			update := funcMap[Update].(func(table string, columns []Column, pk []string, reserved map[string]struct{}) string)
+			actual := update(test.table, test.columns, test.pk, test.reserved)
 			if actual != test.expected {
 				t.Fatalf("does match resp actual: %v, expected: %v", actual, test.expected)
 			}
@@ -270,7 +295,7 @@ func TestFuncMapDelete(t *testing.T) {
 			name:     "call Delete",
 			table:    "test",
 			pk:       []string{"test1", "test2"},
-			expected: "DELETE FROM test Where test1 = $1, test2 = $2",
+			expected: "DELETE FROM test WHERE test1 = $1, test2 = $2",
 		},
 	}
 	funcMap := newFuncMap()
@@ -280,6 +305,57 @@ func TestFuncMapDelete(t *testing.T) {
 			t.Parallel()
 			delete := funcMap[Delete].(func(table string, pk []string) string)
 			actual := delete(test.table, test.pk)
+			if actual != test.expected {
+				t.Fatalf("does match resp actual: %v, expected: %v", actual, test.expected)
+			}
+		})
+	}
+}
+
+func TestFuncMapSelect(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		table    string
+		columns  []Column
+		pk       []Column
+		reserved map[string]struct{}
+		expected string
+	}{
+		{
+			name:     "when columns are enmpty",
+			table:    "test",
+			columns:  []Column{},
+			pk:       []Column{},
+			reserved: map[string]struct{}{},
+			expected: "",
+		},
+		{
+			name:     "when columns is not empty",
+			table:    "test",
+			columns:  []Column{"test1", "test2", "test3", "pk1", "pk2"},
+			pk:       []Column{"pk1", "pk2"},
+			reserved: map[string]struct{}{},
+			expected: "SELECT test1, test2, test3 FROM test WHERE pk1 = $1, pk2 = $2",
+		},
+		{
+			name:    "when columns is not empty",
+			table:   "test",
+			columns: []Column{"test1", "test2", "test3", "pk1", "pk2"},
+			pk:      []Column{"pk1", "pk2"},
+			reserved: map[string]struct{}{
+				"test1": {},
+			},
+			expected: "SELECT 'test1', test2, test3 FROM test WHERE pk1 = $1, pk2 = $2",
+		},
+	}
+	funcMap := newFuncMap()
+	for _, _test := range tests {
+		test := _test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			do := funcMap[Select].(func(table string, columns []Column, pk []Column, reserved map[string]struct{}) string)
+			actual := do(test.table, test.columns, test.pk, test.reserved)
 			if actual != test.expected {
 				t.Fatalf("does match resp actual: %v, expected: %v", actual, test.expected)
 			}
