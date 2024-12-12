@@ -12,6 +12,26 @@ type Extractor interface {
 	GetPk(table string) []string
 	GetColumns(table string) map[string]common.GoDataType
 	ListTableNames() []string
+	ListReservedWord() []string
+}
+
+func Extract(ctx context.Context, provider Provider, schema string, source string) Extractor {
+	switch provider {
+	case Mysql:
+		return nil
+	case Postgres:
+		extract := new(extract[postgres.PostgresDataType])
+		db := postgres.NewDB(source)
+		extract.tables = postgres.InitTables(ctx, db, schema)
+		extract.reserved = postgres.InitReservedWords(ctx, db)
+		return extract
+	default:
+		return nil
+	}
+}
+
+func (e extract[A]) ListReservedWord() []string {
+	return e.reserved.ListReservedWord()
 }
 
 func (e extract[A]) ListTableNames() []string {
@@ -39,23 +59,10 @@ func (e extract[A]) GetColumns(table string) map[string]common.GoDataType {
 	return converted
 }
 
-func Extract(ctx context.Context, provider Provider, schema string, source string) Extractor {
-	switch provider {
-	case Mysql:
-		return nil
-	case Postgres:
-		extract := new(extract[postgres.PostgresDataType])
-		db := postgres.NewDB(source)
-		extract.tables = postgres.InitTables(ctx, db, schema)
-		return extract
-	default:
-		return nil
-	}
-}
-
 type extract[A postgres.PostgresDataType | mysql.MysqlDataType] struct {
 	tables TablesGetter[A]
 	// tableTree TableTreeGetter
+	reserved ReservedGetter[A]
 }
 
 type TablesGetter[A postgres.PostgresDataType | mysql.MysqlDataType] interface {
@@ -63,6 +70,10 @@ type TablesGetter[A postgres.PostgresDataType | mysql.MysqlDataType] interface {
 	GetColumnNames(table string) []string
 	GetColumnType(table string) (map[string]A, error)
 	ListTableNames() []string
+}
+
+type ReservedGetter[A postgres.PostgresDataType | mysql.MysqlDataType] interface {
+	ListReservedWord() []string
 }
 
 type TableTreeGetter interface{}

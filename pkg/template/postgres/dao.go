@@ -18,7 +18,7 @@ type {{ .TableName }} struct {
 type {{ .TableName }}Dao struct {}
 
 func (d {{.TableName }}Dao) Create(db *sql.DB, target {{ .TableName }}) (int64, error) {
-	m, err := db.Exec({{ backQuote }}{{ insert $.TableName $.Columns }}{{ backQuote }}, {{- withTarget "target" $.Columns }})
+	m, err := db.Exec({{ backQuote }}{{ insert $.TableName $.Columns $.Reserved }}{{ backQuote }}, {{- withTarget "target" $.Columns }})
 	if err != nil {
 		return 0, err
 	}
@@ -31,7 +31,7 @@ func (d {{.TableName }}Dao) Create(db *sql.DB, target {{ .TableName }}) (int64, 
 {{ if isPrimaryKeyOnly $.Pk $.DataTypes }}
 {{ else }}
 func (d {{.TableName }}Dao) Update(db *sql.DB, {{ range $pk := .Pk}}{{ $pk }} {{ pkType $pk $.DataTypes }},{{- end}} target {{ .TableName }}) (int64, error) {
-	m, err := db.Exec({{ backQuote }}{{ update $.TableName $.Columns $.Pk }}{{ backQuote }}, {{ withPk "target" $.Columns $.Pk}})
+	m, err := db.Exec({{ backQuote }}{{ update $.TableName $.Columns $.Pk $.Reserved }}{{ backQuote }}, {{ withPk "target" $.Columns $.Pk}})
 	if err != nil {
 		return 0, err
 	}
@@ -56,7 +56,7 @@ func (d {{.TableName }}Dao) Delete(db *sql.DB, {{ argumentPk $.Pk $.DataTypes }}
 }
 
 func (d {{.TableName }}Dao) Get(db *sql.DB, {{ argumentPk $.Pk $.DataTypes }}) (*{{.TableName}}, error) {
-	m := db.QueryRow("SELECT {{ listLiner $.Columns }} FROM {{.TableName}} WHERE {{ where $.Pk }}", {{ listLiner $.Pk }})
+	m := db.QueryRow({{ backQuote }}{{ select $.TableName $.Columns $.Pk $.Reserved }}{{ backQuote }}, {{ listLiner $.Pk }})
 	if err := m.Err(); err != nil {
 		return nil, err
 	}

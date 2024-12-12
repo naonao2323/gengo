@@ -19,6 +19,7 @@ type (
 		Pk        []Column
 		DataTypes DataTypeByColumn
 		Columns   []Column
+		Reserved  map[string]struct{}
 	}
 )
 
@@ -48,6 +49,7 @@ const (
 	Insert                      = FuncMapKey("insert")
 	Update                      = FuncMapKey("update")
 	Delete                      = FuncMapKey("delete")
+	Select                      = FuncMapKey("select")
 	WithTarget                  = FuncMapKey("withTarget")
 	WithPk                      = FuncMapKey("withPk")
 	PkLiner                     = FuncMapKey("pkLiner")
@@ -108,7 +110,6 @@ func newFuncMap() template.FuncMap {
 		ListLiner: func(in []string) string {
 			return liner(in)
 		},
-		// ここもうちょっと具体的に名前にできないか考える
 		MapLiner: func(in map[string]string) string {
 			keys := make([]string, 0, len(in))
 			for key := range in {
@@ -165,14 +166,18 @@ func newFuncMap() template.FuncMap {
 			}
 			return liner(scan)
 		},
-		Insert: func(table string, columns []Column) string {
+		Insert: func(table string, columns []Column, reserved map[string]struct{}) string {
 			var builder strings.Builder
 			builder.WriteString(fmt.Sprintf("INSERT INTO %s ", table))
 			func() {
 				builder.WriteString("(")
 				defer builder.WriteString(") ")
 				for i := range columns {
-					builder.WriteString(columns[i])
+					if _, ok := reserved[columns[i]]; ok {
+						builder.WriteString(fmt.Sprintf("'%s'", columns[i]))
+					} else {
+						builder.WriteString(columns[i])
+					}
 					if i < len(columns)-1 {
 						builder.WriteRune(',')
 					}
@@ -191,8 +196,8 @@ func newFuncMap() template.FuncMap {
 			}()
 			return builder.String()
 		},
-		Update: func(table string, columns []Column, pk []string) string {
-			if len(columns) == 0 || len(pk) == 0 {
+		Update: func(table string, columns []Column, pk []string, reserved map[string]struct{}) string {
+			if len(columns)-len(pk) <= 0 {
 				return ""
 			}
 			incrementer := func() func() int {
@@ -202,19 +207,35 @@ func newFuncMap() template.FuncMap {
 					return add
 				}
 			}()
+			elimitedPk := func() []Column {
+				set := make(map[string]struct{}, len(pk))
+				for i := range pk {
+					set[pk[i]] = struct{}{}
+				}
+				if len(columns)-len(pk) <= 0 {
+					// TODO: log
+					return nil
+				}
+				elimited := make([]Column, 0, 2)
+				for i := range columns {
+					if _, ok := set[columns[i]]; ok {
+						continue
+					}
+					elimited = append(elimited, columns[i])
+				}
+				return elimited
+			}()
 			var builder strings.Builder
 			builder.WriteString("UPDATE ")
 			builder.WriteString(fmt.Sprintf("%s ", table))
-			builder.WriteString("SET ")
-		LOOP:
-			for i := range columns {
-				for j := range pk {
-					if pk[j] == columns[i] {
-						continue LOOP
-					}
+			builder.WriteString("SET")
+			for i := range elimitedPk {
+				if _, ok := reserved[elimitedPk[i]]; ok {
+					builder.WriteString(fmt.Sprintf(" '%s' = $%d", elimitedPk[i], incrementer()))
+				} else {
+					builder.WriteString(fmt.Sprintf(" %s = $%d", elimitedPk[i], incrementer()))
 				}
-				builder.WriteString(fmt.Sprintf("%s.%s = $%d", table, columns[i], incrementer()))
-				if i < len(columns)-1 {
+				if i < len(elimitedPk)-1 {
 					builder.WriteRune(',')
 				}
 			}
@@ -232,9 +253,52 @@ func newFuncMap() template.FuncMap {
 				return ""
 			}
 			var builder strings.Builder
-			builder.WriteString(fmt.Sprintf("DELETE FROM %s Where ", table))
+			builder.WriteString(fmt.Sprintf("DELETE FROM %s WHERE ", table))
 			for i := range pk {
 				builder.WriteString(fmt.Sprintf("%s = $%v", pk[i], i+1))
+				if i < len(pk)-1 {
+					builder.WriteString(", ")
+				}
+			}
+			return builder.String()
+		},
+		Select: func(table string, columns []Column, pk []Column, reserved map[string]struct{}) string {
+			if len(columns)-len(pk) <= 0 {
+				return ""
+			}
+			eliminatedPk := func() []Column {
+				set := make(map[string]struct{}, len(pk))
+				for i := range pk {
+					set[pk[i]] = struct{}{}
+				}
+				eliminated := make([]string, 0, len(columns))
+				for i := range columns {
+					if _, ok := set[columns[i]]; !ok {
+						eliminated = append(eliminated, columns[i])
+					}
+				}
+				return eliminated
+			}()
+			var builder strings.Builder
+			builder.WriteString("SELECT ")
+			for i := range eliminatedPk {
+				if _, ok := reserved[eliminatedPk[i]]; ok {
+					builder.WriteString(fmt.Sprintf("'%s'", eliminatedPk[i]))
+				} else {
+					builder.WriteString(eliminatedPk[i])
+				}
+				if i < len(eliminatedPk)-1 {
+					builder.WriteString(", ")
+				}
+			}
+			builder.WriteString(fmt.Sprintf(" FROM %s ", table))
+			builder.WriteString("WHERE ")
+			for i := range pk {
+				if _, ok := reserved[pk[i]]; ok {
+					builder.WriteString(fmt.Sprintf("'%s' = $%d", pk[i], i+1))
+				} else {
+					builder.WriteString(fmt.Sprintf("%s = $%d", pk[i], i+1))
+				}
 				if i < len(pk)-1 {
 					builder.WriteString(", ")
 				}

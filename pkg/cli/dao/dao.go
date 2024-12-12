@@ -78,7 +78,7 @@ func (d *dao) run(cmd *cobra.Command, args []string) error {
 				cancel,
 				executor.NewTreeExecutor(),
 				table.NewTableExecutor(d.extractor),
-				output.NewOutputExecutor(template, d.outputPath),
+				output.NewOutputExecutor(template, d.outputPath, d.extractor),
 			)
 			if err := state.Run(ctx, events); err != nil {
 				errors <- err

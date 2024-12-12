@@ -36,6 +36,10 @@ func (f fakeExtractor) ListTableNames() []string {
 	return f.tableNames
 }
 
+func (f fakeExtractor) ListReservedWord() []string {
+	return nil
+}
+
 func TestOptimize(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
