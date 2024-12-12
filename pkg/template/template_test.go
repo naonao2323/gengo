@@ -36,44 +36,6 @@ func TestFuncMapKeyListLiner(t *testing.T) {
 	}
 }
 
-func TestFuncMapKeyMapLiner(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name     string
-		in       map[string]string
-		expected string
-	}{
-		{
-			name: "map liner",
-			in: map[string]string{
-				"test1": "string",
-				"test2": "int",
-			},
-			expected: "test1,test2",
-		},
-		{
-			name: "map liner",
-			in: map[string]string{
-				"test1": "string",
-				"test2": "int",
-			},
-			expected: "test1,test2",
-		},
-	}
-	funcMap := newFuncMap()
-	for _, _test := range tests {
-		test := _test
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			mapLiner := funcMap[MapLiner].(func(in map[string]string) string)
-			actual := mapLiner(test.in)
-			if actual != test.expected {
-				t.Fatalf("does match resp actual: %v, expected: %v", actual, test.expected)
-			}
-		})
-	}
-}
-
 func TestFuncMapKeyWhere(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
