@@ -40,7 +40,6 @@ type FuncMapKey = string
 
 const (
 	ListLiner        FuncMapKey = FuncMapKey("listLiner")
-	MapLiner                    = FuncMapKey("mapLiner")
 	Where                       = FuncMapKey("where")
 	BackQuote                   = FuncMapKey("backQuote")
 	PkType                      = FuncMapKey("pkType")
@@ -109,13 +108,6 @@ func newFuncMap() template.FuncMap {
 	return template.FuncMap{
 		ListLiner: func(in []string) string {
 			return liner(in)
-		},
-		MapLiner: func(in map[string]string) string {
-			keys := make([]string, 0, len(in))
-			for key := range in {
-				keys = append(keys, key)
-			}
-			return liner(keys)
 		},
 		Where: func(pk []string) string {
 			if len(pk) == 0 {
