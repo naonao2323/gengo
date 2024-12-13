@@ -7,7 +7,6 @@ import (
 
 	"github.com/naonao2323/testgen/pkg/common"
 	"github.com/naonao2323/testgen/pkg/config"
-	"github.com/naonao2323/testgen/pkg/config/yaml"
 	"github.com/naonao2323/testgen/pkg/executor"
 	"github.com/naonao2323/testgen/pkg/executor/output"
 	"github.com/naonao2323/testgen/pkg/executor/table"
@@ -47,7 +46,11 @@ func (d *dao) setup(cmd *cobra.Command, args []string) error {
 	if d.outputPath == "" {
 		return errors.New("undefined output path")
 	}
-	config, err := yaml.NewConfig(d.confPath)
+	format, err := convertFormat("yaml")
+	if err != nil {
+		return err
+	}
+	config, err := config.NewConfig(format, d.confPath)
 	if err != nil {
 		return err
 	}
@@ -60,7 +63,31 @@ func (d *dao) setup(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func convertFormat(format string) (config.Format, error) {
+	switch format {
+	case "yaml":
+		return config.Yaml, nil
+	default:
+		return config.UnDefined, errors.New("unknown conf file format")
+	}
+}
+
+func convertWriter(writer config.Writer) output.Writer {
+	switch writer {
+	case config.File:
+		return output.File
+	case config.Sdout:
+		return output.Sdout
+	default:
+		return output.Unknown
+	}
+}
+
 func (d *dao) run(cmd *cobra.Command, args []string) error {
+	writer := d.config.GetWriter()
+	if writer == config.Unknown {
+		return errors.New("unknown writer error")
+	}
 	ctx := context.Background()
 	events := d.optimizer.Optimize(ctx, d.config.GetInclude(), common.DaoPostgresRequest)
 	ctx, cancel := util.WithCondition(ctx, len(events))
@@ -78,7 +105,7 @@ func (d *dao) run(cmd *cobra.Command, args []string) error {
 				cancel,
 				executor.NewTreeExecutor(),
 				table.NewTableExecutor(d.extractor),
-				output.NewOutputExecutor(template, d.outputPath, d.extractor),
+				output.NewOutputExecutor(template, d.outputPath, d.extractor, convertWriter(writer)),
 			)
 			if err := state.Run(ctx, events); err != nil {
 				errors <- err

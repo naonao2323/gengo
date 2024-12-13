@@ -22,18 +22,20 @@ type outputExecutor struct {
 	extractor  extractor.Extractor
 	template   *template.Template
 	outputPath string
+	writer     Writer
 }
 
-func NewOutputExecutor(template *template.Template, outputPath string, extractor extractor.Extractor) OutputExecutor {
+func NewOutputExecutor(template *template.Template, outputPath string, extractor extractor.Extractor, writer Writer) OutputExecutor {
 	return outputExecutor{
 		template:   template,
 		outputPath: outputPath,
 		extractor:  extractor,
+		writer:     writer,
 	}
 }
 
 func (t outputExecutor) Execute(request common.Request, table string, columns map[string]common.GoDataType, pk []string) (*OutputResult, error) {
-	writer, err := newWriter(t.outputPath, table, file)
+	writer, err := newWriter(t.outputPath, table, t.writer)
 	if err != nil {
 		return nil, err
 	}
@@ -51,19 +53,19 @@ func (t outputExecutor) Execute(request common.Request, table string, columns ma
 	return &OutputResult{}, nil
 }
 
-type writer int
+type Writer int
 
 const (
-	file writer = iota
-	sdout
+	File Writer = iota
+	Sdout
+	Unknown Writer = -1
 )
 
-func newWriter(output string, table string, writer writer) (io.Writer, error) {
+func newWriter(output string, table string, writer Writer) (io.Writer, error) {
 	switch writer {
-	case file:
+	case File:
 		return fileWriter(output, table)
-	case sdout:
-		// TODO: 柔軟できるようにする
+	case Sdout:
 		return os.Stdout, nil
 	default:
 		return nil, errors.New("unknown writer type")
