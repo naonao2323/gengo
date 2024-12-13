@@ -28,25 +28,25 @@ func parseYamlConfig(path string) (*yamlConfig, error) {
 	return &config, nil
 }
 
-func (c yamlConfig) GetInclude() *[]string {
+func (c yamlConfig) getInclude() *[]string {
 	return c.Include
 }
 
-func (c yamlConfig) GetSchema() string {
+func (c yamlConfig) getSchema() string {
 	return c.Schema
 }
 
-func (c yamlConfig) GetDbUrl() string {
+func (c yamlConfig) getDbUrl() string {
 	return c.DbUrl
 }
 
-func (c yamlConfig) GetParallel() int {
+func (c yamlConfig) getParallel() int {
 	if c.Parallel == nil {
 		return runtime.NumCPU()
 	}
 	return *c.Parallel
 }
 
-func (c yamlConfig) GetWriter() string {
+func (c yamlConfig) getWriter() string {
 	return c.Writer
 }

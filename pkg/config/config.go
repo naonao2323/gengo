@@ -53,11 +53,11 @@ func NewConfig(format Format, path string) (Config, error) {
 			return nil, err
 		}
 		conf := config{
-			schema:   yaml.GetSchema(),
-			dbUrl:    yaml.GetDbUrl(),
-			parallel: yaml.GetParallel(),
-			include:  yaml.GetInclude(),
-			writer:   yaml.GetWriter(),
+			schema:   yaml.getSchema(),
+			dbUrl:    yaml.getDbUrl(),
+			parallel: yaml.getParallel(),
+			include:  yaml.getInclude(),
+			writer:   yaml.getWriter(),
 		}
 		return conf, nil
 	default:
