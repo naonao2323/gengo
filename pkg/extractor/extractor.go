@@ -15,18 +15,24 @@ type Extractor interface {
 	ListReservedWord() []string
 }
 
-func Extract(ctx context.Context, provider Provider, schema string, source string) Extractor {
+func Extract(ctx context.Context, provider Provider, schema string, source string) (Extractor, error) {
 	switch provider {
 	case Mysql:
-		return nil
+		return nil, nil
 	case Postgres:
 		extract := new(extract[postgres.PostgresDataType])
-		db := postgres.NewDB(source)
-		extract.tables = postgres.InitTables(ctx, db, schema)
+		db, err := postgres.NewDB(source)
+		if err != nil {
+			return nil, err
+		}
+		extract.tables, err = postgres.InitTables(ctx, db, schema)
+		if err != nil {
+			return nil, err
+		}
 		extract.reserved = postgres.InitReservedWords(ctx, db)
-		return extract
+		return extract, nil
 	default:
-		return nil
+		return nil, nil
 	}
 }
 

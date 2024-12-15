@@ -56,7 +56,10 @@ func (d *dao) setup(cmd *cobra.Command, args []string) error {
 	}
 	d.config = config
 	ctx := context.Background()
-	extractor := extractor.Extract(ctx, extractor.Postgres, d.config.GetSchema(), d.config.GetDbUrl())
+	extractor, err := extractor.Extract(ctx, extractor.Postgres, d.config.GetSchema(), d.config.GetDbUrl())
+	if err != nil {
+		return err
+	}
 	optimizer := optimizer.NewOptimizer(extractor)
 	d.extractor = extractor
 	d.optimizer = optimizer
@@ -118,7 +121,6 @@ func (d *dao) run(cmd *cobra.Command, args []string) error {
 		close(errors)
 	}()
 	for err := range errors {
-		// ちゃんとwrapする
 		if err != nil {
 			return err
 		}

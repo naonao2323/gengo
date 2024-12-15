@@ -67,11 +67,11 @@ func (ts Tables) ListTableNames() []string {
 	return names
 }
 
-func InitTables(ctx context.Context, db *sql.DB, schema string) Tables {
+func InitTables(ctx context.Context, db *sql.DB, schema string) (Tables, error) {
 	tables := make(Tables)
 	tableNames, err := listTableNames(ctx, db, schema)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	for i := range tableNames {
 		table, err := fetchTable(ctx, db, tableNames[i])
@@ -86,7 +86,7 @@ func InitTables(ctx context.Context, db *sql.DB, schema string) Tables {
 
 	}
 
-	return tables
+	return tables, nil
 }
 
 func fetchTable(ctx context.Context, db *sql.DB, name string) (*table, error) {

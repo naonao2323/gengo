@@ -98,7 +98,11 @@ func drop(db *sql.DB) error {
 }
 
 func TestMain(m *testing.M) {
-	db := NewDB(URL)
+	db, err := NewDB(URL)
+	if err != nil {
+		fmt.Println("connet db error", err)
+		os.Exit(1)
+	}
 	if err := drop(db); err != nil {
 		fmt.Println(err)
 	}
@@ -205,7 +209,10 @@ func TestGetForeignKeyTree(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
-			db := NewDB(URL)
+			db, err := NewDB(URL)
+			if err != nil {
+				t.Fatal(err)
+			}
 			result, err := InitForeignKeyTree(ctx, db, test.table)
 			require.NoError(t, err)
 			assert.Equal(t, test.expected, result)
@@ -325,8 +332,14 @@ func TestInitTables(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
-			db := NewDB(URL)
-			tables := InitTables(ctx, db, test.schema)
+			db, err := NewDB(URL)
+			if err != nil {
+				t.Fatal(err)
+			}
+			tables, err := InitTables(ctx, db, test.schema)
+			if err != nil {
+				t.Fatal(err)
+			}
 			assert.Equal(t, test.expected, tables)
 		})
 	}
