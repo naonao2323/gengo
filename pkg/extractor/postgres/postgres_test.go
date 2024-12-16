@@ -105,7 +105,6 @@ func TestMain(m *testing.M) {
 	}
 	if err := drop(db); err != nil {
 		fmt.Println(err)
-		os.Exit(1)
 	}
 	if err := migrate(db); err != nil {
 		fmt.Println(err)
