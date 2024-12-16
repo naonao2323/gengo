@@ -8,12 +8,12 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func NewDB(dataSource string) *sql.DB {
+func NewDB(dataSource string) (*sql.DB, error) {
 	db, err := sql.Open("postgres", dataSource)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return db
+	return db, err
 }
 
 type PostgresDataType int
@@ -43,7 +43,6 @@ const (
 )
 
 func convert(dataType string) (PostgresDataType, error) {
-	fmt.Printf("%v\n", dataType)
 	dataTypeMap := map[string]PostgresDataType{
 		"integer":                     INTEGER,
 		"bigint":                      BIGINT,
