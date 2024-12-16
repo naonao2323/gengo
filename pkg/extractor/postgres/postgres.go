@@ -43,7 +43,6 @@ const (
 )
 
 func convert(dataType string) (PostgresDataType, error) {
-	fmt.Printf("%v\n", dataType)
 	dataTypeMap := map[string]PostgresDataType{
 		"integer":                     INTEGER,
 		"bigint":                      BIGINT,
