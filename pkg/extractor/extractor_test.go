@@ -57,7 +57,7 @@ func Test_Exractor_GetColumn(t *testing.T) {
 			expect: nil,
 		},
 		{
-			name:  "succeded in converting go data type",
+			name:  "succeeded in converting go data type",
 			table: "users",
 			extract: func() extract[postgres.PostgresDataType] {
 				return extract[postgres.PostgresDataType]{

@@ -107,6 +107,7 @@ func TestFuncMapArgumentPk(t *testing.T) {
 }
 
 func TestFuncMapScan(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		columns  []string
@@ -179,7 +180,7 @@ func TestFuncMapInsert(t *testing.T) {
 		test := _test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			insert := funcMap[Insert].(func(table string, columns []Column, reserverd map[string]struct{}) string)
+			insert := funcMap[Insert].(func(table string, columns []Column, reserved map[string]struct{}) string)
 			actual := insert(test.table, test.columns, test.reserved)
 			if actual != test.expected {
 				t.Fatalf("does match resp actual: %v,expected: %v", actual, test.expected)

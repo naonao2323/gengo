@@ -1,12 +1,8 @@
-linters-settings:
-  govet:
-    check-shadowing: true
+version: '2'
 
 run:
   timeout: 15m
   tests: true
-  skip-files:
-    - '_test\.go$'
 
 linters:
   enable:
@@ -30,3 +26,13 @@ linters:
     - misspell
     - unused
     - ineffassign
+  settings:
+      govet:
+        enable-all: true
+
+issues:
+  exclude-use-default: false
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gochecknoinits
