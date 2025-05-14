@@ -122,7 +122,11 @@ func fetchTable(ctx context.Context, db *sql.DB, name string) (*table, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer result.Close()
+	defer func() {
+		if err := result.Close(); err != nil {
+			panic(err)
+		}
+	}()
 	columns := make([]column, 0, 10)
 	for result.Next() {
 		column := new(column)
@@ -153,7 +157,11 @@ func listTableNames(ctx context.Context, db *sql.DB, schema string) ([]string, e
 	if err != nil {
 		return nil, err
 	}
-	defer result.Close()
+	defer func() {
+		if err := result.Close(); err != nil {
+			panic(err)
+		}
+	}()
 	tables := make([]string, 0, 100)
 	for result.Next() {
 		table := new(string)

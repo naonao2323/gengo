@@ -32,7 +32,11 @@ func listReservedWord(ctx context.Context, db *sql.DB) (words, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer result.Close()
+	defer func() {
+		if err := result.Close(); err != nil {
+			panic(err)
+		}
+	}()
 	words := make([]string, RESERVED_WORDS)
 	for result.Next() {
 		word := new(string)

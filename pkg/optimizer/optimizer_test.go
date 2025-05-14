@@ -111,13 +111,8 @@ func TestOptimize(t *testing.T) {
 				if test.tableCnt <= 0 {
 					return
 				}
-				for {
-					select {
-					case <-ctx.Done():
-						close(events)
-						return
-					}
-				}
+				<-ctx.Done()
+				close(events)
 			}
 			wait()
 			for i := range actual {

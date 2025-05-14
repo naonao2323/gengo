@@ -221,6 +221,7 @@ func TestGetForeignKeyTree(t *testing.T) {
 }
 
 func TestInitTables(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		schema   string

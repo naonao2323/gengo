@@ -79,7 +79,11 @@ func getReferenced(ctx context.Context, db *sql.DB, constraints []string) (map[F
 	if err != nil {
 		return nil, err
 	}
-	defer result.Close()
+	defer func() {
+		if err := result.Close(); err != nil {
+			panic(err)
+		}
+	}()
 	type pair struct {
 		sourceColumn string
 		targetTable  string
@@ -130,7 +134,11 @@ func getForeignConstraints(ctx context.Context, db *sql.DB, table string) ([]str
 	if err != nil {
 		return nil, err
 	}
-	defer result.Close()
+	defer func() {
+		if err := result.Close(); err != nil {
+			panic(err)
+		}
+	}()
 	var constraints []string
 	for result.Next() {
 		var constraint string
